@@ -336,10 +336,11 @@ def train(epoch):
     #reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
     mask_channel_3d = torch.cat((mask_channel,mask_channel,mask_channel),1)
 
-    fake_c_masked = fake_c[mask_channel_3d.to(torch.bool)] #なんか1次元になっちゃう
-    real_b_masked = real_b[mask_channel_3d.to(torch.bool)]
+    fake_c_masked = torch.mul(fake_c, mask_channel_3d) #なんか1次元になっちゃう
+    real_b_masked = torch.mul(real_b, mask_channel_3d)
 
-    reconstruct_error = criterionL1(fake_c_masked, real_b_masked) # 生成画像とオリジナルの差
+    reconstruct_error = criterionMSE(fake_c_masked, real_b_masked) # 生成画像とオリジナルの差
+    tensor_plot2image(fake_c_masked[0][0],'fake_c_mono',iteration)
 
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
@@ -353,7 +354,6 @@ def train(epoch):
     optimizerG.step() # 動いてる
  #   print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(
 #        epoch, iteration, len(training_data_loader), loss_d.item(), loss_g.item()))
-    #tensor_plot2image(fake_c_raw[0][0],'fake_c_mono',1)
 
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
