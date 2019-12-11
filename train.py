@@ -68,7 +68,7 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(3, 3, opt.ngf, 'batch', False, [0])
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
@@ -187,10 +187,9 @@ def train(epoch):
     #maskとrealCの結合
     #real_c_4d = torch.utils.data.ConcatDataset(real_c,mask_channel)
     real_c_4d = torch.cat((real_c,mask_channel),1)
-
     #fake_cはreal_cをGeneratorにかけたもの
     tensor_plot2image(real_c,'realC',iteration)
-    fake_c_raw = netG(real_c_4d) #穴画像
+    fake_c_raw = netG(real_b) #穴画像
 
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
@@ -322,7 +321,7 @@ def train(epoch):
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) 
     real_c_4d = torch.cat((real_c,mask_channel),1)
-    fake_c_raw = netG.forward(real_c_4d)#穴画像
+    fake_c_raw = netG.forward(real_b)#穴画像
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
@@ -335,6 +334,7 @@ def train(epoch):
 
     #12/11:recontstruct_errorを256*256の比較から64*64の比較に帰る
     reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
+    reconstruct_error = criterionL1(fake_c, real_b) # 生成画像とオリジナルの差
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
@@ -347,21 +347,24 @@ def train(epoch):
     optimizerG.step() # 動いてる
  #   print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(
 #        epoch, iteration, len(training_data_loader), loss_d.item(), loss_g.item()))
+    #tensor_plot2image(fake_c_raw[0][0],'fake_c_mono',1)
+
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
-    if(iteration == len(training_data_loader)):
-      vutils.save_image(fake_b.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+    if(iteration == 1):
+      vutils.save_image(fake_c_raw.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
     #最初に選出されたバッチはテスト用に補完する
     if(iteration == 1):
       testing_real_b = real_b
       testing_real_c = real_c
   #1epoch毎に出力してみる
+  '''
   with torch.no_grad():
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4)   
     testing_input_4d = torch.cat((testing_real_c,mask_channel),1)
-    testing_output_raw = netG(testing_input_4d)
+    testing_output_raw = netG(testing_real_b)
     testing_output = testing_real_c.clone()#↓で穴以外はreal_bで上書きする
     testing_output[:,:,center - d:center+d,center - d:center+d] = testing_output_raw[:,:,center - d:center+d,center - d:center+d]
 
@@ -375,7 +378,7 @@ def train(epoch):
     out_img = testing_output.data[0]
     #save_img(out_img, "checkpoint/{}/test".format(opt.dataset))
     vutils.save_image(testing_output.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=5))
- 
+ '''
 
 #12/11テストタスクを全部↑に引っ越す
 def test(epoch):
