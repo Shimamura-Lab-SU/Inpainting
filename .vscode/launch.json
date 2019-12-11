@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            //"pythonPath": "${config:python.pythonPath}",
+            "program": "${file}",
+            "console": "integratedTerminal",
+
+            "args":[
+                //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
+                "--dataset=Inpainting" ,"--batchSize=15","--testBatchSize=15","--nEpochs=2","--cuda","--threads=0"
+            ]
+        }
+    ]
+}
