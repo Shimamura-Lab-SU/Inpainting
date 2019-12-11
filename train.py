@@ -188,17 +188,20 @@ def train(epoch):
     #real_c_4d = torch.utils.data.ConcatDataset(real_c,mask_channel)
     real_c_4d = torch.cat((real_c,mask_channel),1)
     #fake_cはreal_cをGeneratorにかけたもの
-    tensor_plot2image(real_c,'realC',iteration)
+    #tensor_plot2image(real_c,'realC',iteration)
     fake_c_raw = netG(real_c) #穴画像
 
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
-    
+    tensor_plot2image(fake_c,'fakeC_1',iteration)
+    tensor_plot2image(fake_c_raw,'fakeC_Raw_1',iteration)
+    tensor_plot2image(real_c,'realC_1',iteration)
+
     
 
-    tensor_plot2image(real_a,'realA_0',iteration)
-    tensor_plot2image(real_b,'realB_0',iteration)
+    #tensor_plot2image(real_a,'realA_0',iteration)
+    #tensor_plot2image(real_b,'realB_0',iteration)
     #tensor_plot2image(fake_b_hallsize,'fakeB_0',iteration)
     #vutils.save_image(real_a[0][0].detach(), '{}\\real_sample00_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
      
@@ -328,7 +331,9 @@ def train(epoch):
     fake_c_trim2 = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d])
 
 
-    tensor_plot2image(fake_c,'fakeC',iteration)
+    tensor_plot2image(fake_c,'fakeC_2',iteration)
+    tensor_plot2image(fake_c_raw,'fakeC_Raw_2',iteration)
+    tensor_plot2image(real_c,'realC_2',iteration)
 
     #tensor_plot2image(fake_c,'fakeC',iteration)
 
@@ -358,7 +363,8 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+      tensor_plot2image(fake_c_raw,'fakeC_Raw_Last',iteration)
+      #vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
     #最初に選出されたバッチはテスト用に補完する
     if(iteration == 1):
