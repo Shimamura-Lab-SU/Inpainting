@@ -315,12 +315,15 @@ def train(epoch):
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
+    fake_c_trim2 = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d])
+
 
     tensor_plot2image(fake_c,'fakeC',iteration)
 
     #tensor_plot2image(fake_c,'fakeC',iteration)
-    
-    reconstruct_error = criterionL1(fake_c, real_b) # 生成画像とオリジナルの差
+
+    #12/11:recontstruct_errorを256*256の比較から64*64の比較に帰る
+    reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
