@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
@@ -98,8 +99,21 @@ def define_D_Edge(input_nc, output_nc, ndf, gpu_ids=[]):
     netD_Edge.cuda()
   netD_Edge.apply(weights_init)
   return netD_Edge
+'''
+def define_Detector(input_nc,output_nc,gpu_ids=[],tensor=torch.FloatTensor):
+  net_Detector = None
+  use_gpu = len(gpu_ids) > 0
 
+  if use_gpu:
+    assert(torch.cuda.is_available())
 
+  #net_Detector = Edge_Detector(input_nc,output_nc,gpu_ids=gpu_ids,tensor=tensor)
+
+  if use_gpu:
+    #net_Detector.cuda()
+  net_Detector.apply(weights_init)
+  return net_Detector 
+'''
 def print_network(net):
   num_params = 0
   for param in net.parameters():
@@ -335,6 +349,43 @@ class Local_Discriminator(nn.Module):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
         return self.model(input)
+'''
+class Edge_Detector(nn.Module):
+  def __init__(self, input_nc,output_nc,gpu_ids=[],tensor=torch.FloatTensor):
+      super(Edge_Detector,self).__init__()
+      self.gpu_ids = gpu_ids
+      self.input_nc = input_nc
+      self.output_nc = output_nc
+      self.dtype = torch.float
+      self.device = torch.device("cuda:0")
+      self.tensor = tensor
+
+      self.kernel = torch.tensor([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]],device="cuda:0" )
+      self.gray_kernel = torch.tensor([0.299, 0.587, 0.114],device="cuda:0").reshape(1, 3, 1, 1)
+      #self.edge_k = torch.as_tensor(kernel.reshape(1,1,3,3))#.to(self.device,self.dtype)
+      #self.gray_kernel = np.array([0.299, 0.587, 0.114]).reshape(1, 3, 1, 1)
+      model = [F.Conv2d()]
+
+  def forward(self, input):
+    #モデルの形成はforwardでやってみる
+    #kernel = np.array([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]])
+
+    edge_k = self.kernel.reshape(1,1,3,3)#.to(self.device,self.dtype)
+    color = input#.to(self.dtype)
+    #gray_kernel = np.array([0.299, 0.587, 0.114]).reshape(1, 3, 1, 1)
+    #gray_k = torch.as_tensor(self.gray_kernel)#.to(self.device,self.dtype)
+
+    gray = torch.sum(color * self.gray_kernel,dim = 1,keepdim = True)
+    #model = nn.Sequential()
+
+    model = [F.Conv2d(gray,edge_k  ,padding=1)]
+    self.model = nn.Sequential(*model)
+
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+      return self.model(input)
+'''
 
 #形質としてはLocalDiscriminatorと同じ形を目指す
 class Edge_Discriminator(nn.Module):
@@ -369,6 +420,29 @@ class Edge_Discriminator(nn.Module):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
         return self.model(input)
+
+def load_tensor(__input):
+    
+    array = np.asarray(__input, np.float32).transpose([2, 0, 1]) / 255.0
+    tensor = torch.as_tensor(np.expand_dims(array, axis=0))  # rank 4
+    return tensor
+
+def edge_detection(__input):
+    kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], np.float32)  # convolution filter
+    with torch.no_grad():
+        # [out_ch, in_ch, .., ..] : channel wiseに計算
+        edge_k = torch.as_tensor(kernel.reshape(1, 1, 3, 3))
+
+        # エッジ検出はグレースケール化してからやる
+        color = __input  # color image [1, 3, H, W]
+        gray_kernel = np.array([0.299, 0.587, 0.114], np.float32).reshape(1, 3, 1, 1)  # color -> gray kernel
+        gray_k = torch.as_tensor(gray_kernel)
+        
+        gray = torch.sum(color * gray_k, dim=1, keepdim=True)  # grayscale image [1, 1, H, W]
+
+        # エッジ検出
+        edge_image = F.conv2d(gray, edge_k, padding=1)
+        return edge_image
 
 # Define a resnet block
 class ResnetBlock(nn.Module):

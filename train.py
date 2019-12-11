@@ -5,6 +5,8 @@ from math import log10
 import math
 import cv2
 from copy import copy
+import numpy as np
+import torch.nn.functional as F
 
 import torch
 import torch.nn as nn
@@ -12,7 +14,8 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from   torch.autograd         import Variable
 from   torch.utils.data       import DataLoader
-from   networks               import define_G, define_D, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local
+from   networks               import define_G, define_D, GANLoss, print_network, define_D_Edge,define_D_Global, define_D_Local
+#from   networks               import edge_detection#,define_Detector
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 
@@ -76,7 +79,7 @@ netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = define_D_Global(hogehoge)
 #netD_Local  = define_D_Local(hogehoge)
 #netD_Edge   = define_D_Edge(hogehoge)
-
+#net_Detector = define_Detector(3,1,[0],torch.FloatTensor)
 
 criterionGAN = GANLoss()
 #criterionL1 = nn.L1Loss()
@@ -105,6 +108,7 @@ if opt.cuda:
   netD_Edge   = netD_Edge.cuda()
 
   netG = netG.cuda()
+  #net_Detector = net_Detector.cuda()
   criterionGAN = criterionGAN.cuda()
   #criterionL1 = criterionL1.cuda()
   #criterionMSE = criterionMSE.cuda()
@@ -114,13 +118,31 @@ if opt.cuda:
 real_a = Variable(real_a)
 real_b = Variable(real_b)
 
+def edge_detection(__input):
+    kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], np.float32)  # convolution filter
+    with torch.no_grad():
+        # [out_ch, in_ch, .., ..] : channel wiseに計算
+        edge_k = torch.as_tensor(kernel.reshape(1, 1, 3, 3), device="cuda:0")
+
+        # エッジ検出はグレースケール化してからやる
+        color = __input  # color image [1, 3, H, W]
+        gray_kernel = np.array([0.299, 0.587, 0.114], np.float32).reshape(1, 3, 1, 1)  # color -> gray kernel
+        gray_k = torch.as_tensor(gray_kernel,device="cuda:0")
+        gray = torch.sum(color * gray_k, dim=1, keepdim=True)  # grayscale image [1, 1, H, W]
+
+        # エッジ検出
+        edge_image = F.conv2d(gray, edge_k, padding=1)
+
+    return edge_image
+
 def train(epoch):
 
   for iteration, batch in enumerate(training_data_loader, 1):
     # forward
+    #real_a, real_b = batch[0],batch[1]
     real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
-    real_a.data.resize_(real_a_cpu.size()).copy_(real_a_cpu)
-    real_b.data.resize_(real_b_cpu.size()).copy_(real_b_cpu)
+    real_a.data.resize_(real_a.size()).copy_(real_a_cpu)
+    real_b.data.resize_(real_b.size()).copy_(real_b_cpu)
     fake_b_all = netG(real_a) #fake_bが偽画像？←そうだよ
     #fake_b = real_a
 #fakebの穴以外の箇所をrealaで上書きする
@@ -151,15 +173,16 @@ def train(epoch):
     #tensorを画像として扱うor .. トリミングする (後者を選択?)
 
     #reala,fakebのエッジ抽出
-    real_a_trim_8bit = (real_a_trim/256).astype('unit8') 
-
-    real_a_canny = cv2.Canny(real_a_trim, 100,600)
-    fake_b_canny = cv2.Canny(fake_b_trim, 100,600)
-    canny_ab = torch.cat((real_a_canny,fake_b_canny), 1)
+    #real_a_trim_8bit = (real_a_trim/256).astype('unit8') 
+    real_a_canny = edge_detection(real_a_trim)
+    #real_a_canny = net_Detector(real_a_trim)
+    #real_a_canny = cv2.Canny(real_a_trim, 100,600)
+    #fake_b_canny = cv2.Canny(fake_b_trim, 100,600)
+    #canny_ab = torch.cat((real_a_canny,fake_b_canny), 1)
 
     detatched_trim = fake_ab_trim.detach()
     detatched = fake_ab.detach()#detatched.shape ..[batchsize,6,256,256]
-    detatched_canny = canny_ab.detach()
+    detatched_canny = fake_ab.detach()
     #グローバルDiscriminator
 
     pred_fakeG = netD_Global.forward(detatched) #pred_dakeが偽画像を一時保存している
@@ -210,9 +233,12 @@ def train(epoch):
      # Second, G(A) = B
     #loss_g_l1 = criterionL1(fake_b, real_b) * opt.lamb
     #loss_g.backward()
-    loss_g1.backward()
-    loss_g2.backward()
-    loss_g3.backward()
+
+    #https://discuss.pytorch.org/t/runtimeerror-trying-to-backward-through-the-graph-a-second-time-but-the-buffers-have-already-been-freed-specify-retain-graph-true-when-calling-backward-the-first-time/6795
+    #よりエラー解決のためretrain_graph = Trueの導入
+    loss_g1.backward(retain_graph=True)#
+    loss_g2.backward(retain_graph=True)
+    loss_g3.backward(retain_graph=True)
     optimizerG.step()
     print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(
         epoch, iteration, len(training_data_loader), loss_d.item(), loss_g1.item()))

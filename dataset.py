@@ -3,6 +3,7 @@ from os.path import join
 
 import torch.utils.data as data
 import torchvision.transforms as transforms
+import torch
 
 from util import is_image_file, load_img
 
@@ -17,7 +18,8 @@ class DatasetFromFolder(data.Dataset):
         #for dirname in listdir(self.photo_path) 
         #    self.image_filenames[x] = dirname
         #    x = x+1
-
+        #self.input = torch.tensor(,type="unit8")
+        #self.target = torch.as_tensor(type="unit8")
         transform_list = [transforms.ToTensor(),
                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
 
@@ -25,12 +27,15 @@ class DatasetFromFolder(data.Dataset):
 
     def __getitem__(self, index):
         # Load Image
+
+
         input = load_img(join(self.photo_path, self.image_filenames[index]))
         input = self.transform(input)
+        input = input.int()
         target = load_img(join(self.sketch_path, self.image_filenames[index]))
-        target = self.transform(target)
+        target = self.transform(target).unit8()
 
-        return input, target
+        return self.input, self.target
 
     def __len__(self):
         return len(self.image_filenames)
