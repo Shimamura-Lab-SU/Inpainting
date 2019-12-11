@@ -15,11 +15,8 @@ from   torch.utils.data       import DataLoader
 from   networks               import define_G, define_D, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
-from   util                   import save_img
 
 import random
-
-
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
@@ -68,7 +65,7 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(3, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(opt.input_nc, opt.output_nc, opt.ngf, 'batch', False, [0])
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
@@ -118,19 +115,6 @@ if opt.cuda:
 real_a = Variable(real_a)
 real_b = Variable(real_b)
 
-#mask_channelは1*256*256の白黒マスク
-center = math.floor(image_size / 2)
-d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
-
-black_channel = torch.full((opt.batchSize,1,image_size,image_size),False)
-white_channel = torch.full((opt.batchSize,1,hall_size,hall_size), True)
-
-
-mask_channel = black_channel.clone()
-mask_channel[:,:,center - d:center+d,center - d:center+d] = white_channel
-if opt.cuda:
-  mask_channel = mask_channel.cuda()
-
 def tensor_plot2image(__input,name,iteration=1):
   if(iteration == 1):
     path = os.getcwd() + '\\testing_output\\'
@@ -138,10 +122,7 @@ def tensor_plot2image(__input,name,iteration=1):
     print('saved testing image')
 
 
-
 def train(epoch):
-  testing_real_b = torch.zeros(opt.batchSize,3,image_size,image_size)
-  testing_real_c = torch.zeros(opt.batchSize,3,image_size,image_size)
 
   #batch_init = torch.tensor()
   for iteration, batch in enumerate(training_data_loader, 1):
@@ -168,36 +149,11 @@ def train(epoch):
       fake_start_image[i][2] = torch.mean(real_a[i][2])
 
 
-    tensor_plot2image(fake_start_image,'fakestart',iteration)
+    #tensor_plot2image(fake_start_image,'fakestart',iteration)
 
-    fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
-    fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
-
-
-    center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
-
-    #12/10real_cは真値の中央に平均画素を詰めたもの
-    real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更
-    
-    real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
-
-  
-
-    #maskとrealCの結合
-    #real_c_4d = torch.utils.data.ConcatDataset(real_c,mask_channel)
-    real_c_4d = torch.cat((real_c,mask_channel),1)
-    #fake_cはreal_cをGeneratorにかけたもの
-    #tensor_plot2image(real_c,'realC',iteration)
-    fake_c_raw = netG(real_b) #穴画像
-
-    fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
-    fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
-
-    tensor_plot2image(fake_c,'fakeC_1',iteration)
-    tensor_plot2image(fake_c_raw,'fakeC_Raw_1',iteration)
-    tensor_plot2image(real_c,'realC_1',iteration)
-    tensor_plot2image(real_b,'realb_1',iteration)
+    #fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
+    #fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
+    fake_b_hallsize = netG(real_b) #fake_bが偽画像？←そうだよ
 
     
 
@@ -221,9 +177,9 @@ def train(epoch):
     # (1) Update D network: maximize log(D(x,y)) + log(1 - D(x,G(x)))
     # ペアで学習しているので　本物vsDiscriminator 偽物 vs Discriminator で執り行うのはどっちも同じ
     ###########################
-    optimizerD_Global.zero_grad()
-    optimizerD_Local.zero_grad()
-    optimizerD_Edge.zero_grad()
+    #optimizerD_Global.zero_grad()
+   # optimizerD_Local.zero_grad()
+   # optimizerD_Edge.zero_grad()
     # train with fake
 
     #realAとFakebの穴周辺を切り出したものを用意する
@@ -322,34 +278,10 @@ def train(epoch):
    # loss_g2 = criterionMSE(pred_fakeL, true_tensor) #lossを統一することによってGeneratorが正しく機能するか？
 
     #12/9新しくforwardを導入。fakeb_hallsizeをもう一度作ってもらう
-    center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 4) 
-    real_c_4d = torch.cat((real_c,mask_channel),1)
-    fake_c_raw = netG.forward(real_b)#穴画像
-    fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
-    fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
-
-    fake_c_trim2 = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d])
-
-
-    tensor_plot2image(fake_c,'fakeC_2',iteration)
-    tensor_plot2image(fake_c_raw,'fakeC_Raw_2',iteration)
-    tensor_plot2image(real_c,'realC_2',iteration)
-    tensor_plot2image(real_b,'realb_2',iteration)
-
-    #tensor_plot2image(fake_c,'fakeC',iteration)
-
-    #12/11:recontstruct_errorを256*256の比較から64*64の比較に帰る
-    #reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
-    mask_channel_3d = torch.cat((mask_channel,mask_channel,mask_channel),1)
-
-    fake_c_masked = torch.mul(fake_c, mask_channel_3d) #なんか1次元になっちゃう
-    real_b_masked = torch.mul(real_b, mask_channel_3d)
-
-    reconstruct_error = criterionMSE(fake_c_raw, real_b) # 生成画像とオリジナルの差
-    tensor_plot2image(fake_c_masked[0][0],'fake_c_mono',iteration)
-
-
+    fake_b_hallsize = netG.forward(real_b)
+    reconstruct_error = criterionL1(fake_b_hallsize, real_b) # 生成画像とオリジナルの差
+    vutils.save_image(fake_b_hallsize[0][1].detach(), '{}\\real_sample00_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
+    tensor_plot2image(fake_b_hallsize,'fakeb_{}'.format(epoch),iteration)
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
     #loss_g.forward()
@@ -361,64 +293,37 @@ def train(epoch):
     optimizerG.step() # 動いてる
  #   print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(
 #        epoch, iteration, len(training_data_loader), loss_d.item(), loss_g.item()))
-
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      #tensor_plot2image(fake_c_raw,'fakeC_Raw_Last',iteration)
-      vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+      vutils.save_image(fake_b.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
 
-    #最初に選出されたバッチはテスト用に補完する
-    if(iteration == 1):
-      testing_real_b = real_b
-      testing_real_c = real_c
   #1epoch毎に出力してみる
-  '''
-  with torch.no_grad():
-    center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 4)   
-    testing_input_4d = torch.cat((testing_real_c,mask_channel),1)
-    testing_output_raw = netG(testing_real_b)
-    testing_output = testing_real_c.clone()#↓で穴以外はreal_bで上書きする
-    testing_output[:,:,center - d:center+d,center - d:center+d] = testing_output_raw[:,:,center - d:center+d,center - d:center+d]
-
-    if opt.cuda:
-      testing_input_4d = testing_input_4d.cuda()
-      testing_output = testing_output.cuda()
-
-    mse = criterionMSE(testing_output,testing_real_b)
-    psnr = 10 * log10(1 / mse.item())
-    testing_output = testing_output.cpu()
-    out_img = testing_output.data[0]
-    #save_img(out_img, "checkpoint/{}/test".format(opt.dataset))
-    vutils.save_image(testing_output.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=5))
- '''
-
-#12/11テストタスクを全部↑に引っ越す
+  
 def test(epoch):
   avg_psnr = 0
   with torch.no_grad():
     for batch in testing_data_loader: 
-      #input, target = Variable(batch[0]), Variable(batch[1])
+      input, target = Variable(batch[0]), Variable(batch[1])
       if opt.cuda:
         input = input.cuda()
         target = target.cuda()
-#12/10　テストのためいったんなし
-      #prediction = netG(input)
-      #mse = criterionMSE(prediction, target)
-      #psnr = 10 * log10(1 / mse.item())
-      #avg_psnr += psnr
-    #print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(testing_data_loader)))
+
+      prediction = netG(input)
+      mse = criterionMSE(prediction, target)
+      psnr = 10 * log10(1 / mse.item())
+      avg_psnr += psnr
+    print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(testing_data_loader)))
      #チェックポイントの段階のモデルからアウトプットを作成する
   
-    if opt.cuda:
-      netG = netG.cuda()
-      input = input.cuda()
+    #if opt.cuda:
+    #  netG = netG.cuda()
+    #  input = input.cuda()
 
-      out = netG(input)
-      out = out.cpu()
-      out_img = out.data[0]  
-      save_img(out_img, "checkpoint/{}/{}/{}".format(epoch,opt.dataset, image_name))
+     # out = netG(input)
+    #  out = out.cpu()
+    #  out_img = out.data[0]  
+    #  save_img(out_img, "checkpoint/{}/{}/{}".format(epoch,opt.dataset, image_name))
 
 
 def checkpoint(epoch):
@@ -443,6 +348,6 @@ def checkpoint(epoch):
 
 for epoch in range(1, opt.nEpochs + 1):
   train(epoch)
-  #test(epoch)
+  test(epoch)
   
   checkpoint(epoch)
