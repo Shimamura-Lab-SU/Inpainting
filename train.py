@@ -122,8 +122,8 @@ real_b = Variable(real_b)
 center = math.floor(image_size / 2)
 d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
 
-black_channel = torch.full((opt.batchSize,1,image_size,image_size),1)
-white_channel = torch.full((opt.batchSize,1,hall_size,hall_size), 0)
+black_channel = torch.full((opt.batchSize,1,image_size,image_size),False)
+white_channel = torch.full((opt.batchSize,1,hall_size,hall_size), True)
 
 
 mask_channel = black_channel.clone()
@@ -189,7 +189,7 @@ def train(epoch):
     real_c_4d = torch.cat((real_c,mask_channel),1)
     #fake_cはreal_cをGeneratorにかけたもの
     tensor_plot2image(real_c,'realC',iteration)
-    fake_c_raw = netG(real_b) #穴画像
+    fake_c_raw = netG(real_c) #穴画像
 
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
@@ -321,7 +321,7 @@ def train(epoch):
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) 
     real_c_4d = torch.cat((real_c,mask_channel),1)
-    fake_c_raw = netG.forward(real_b)#穴画像
+    fake_c_raw = netG.forward(real_c)#穴画像
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
@@ -333,8 +333,14 @@ def train(epoch):
     #tensor_plot2image(fake_c,'fakeC',iteration)
 
     #12/11:recontstruct_errorを256*256の比較から64*64の比較に帰る
-    reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
-    reconstruct_error = criterionL1(fake_c, real_b) # 生成画像とオリジナルの差
+    #reconstruct_error = criterionL1(fake_c_trim2, real_b_trim2) # 生成画像とオリジナルの差
+    mask_channel_3d = torch.cat((mask_channel,mask_channel,mask_channel),1)
+
+    fake_c_masked = fake_c[mask_channel_3d.to(torch.bool)] #なんか1次元になっちゃう
+    real_b_masked = real_b[mask_channel_3d.to(torch.bool)]
+
+    reconstruct_error = criterionL1(fake_c_masked, real_b_masked) # 生成画像とオリジナルの差
+
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
@@ -352,7 +358,7 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      vutils.save_image(fake_c_raw.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+      vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
     #最初に選出されたバッチはテスト用に補完する
     if(iteration == 1):
