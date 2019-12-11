@@ -203,7 +203,7 @@ class ResnetGenerator(nn.Module):
         model += [nn.Conv2d(ngf * 1, int(ngf / 2),kernel_size = 3, stride = 1,padding = 1), norm_layer(int(ngf/ 2 ), affine = True)]
         #output
         model += [nn.Conv2d(int(ngf / 2) , output_nc,kernel_size = 3, stride = 1,padding = 1), norm_layer(output_nc, affine = True)]
-        model += [nn.Tanh()]
+        model += [nn.Sigmoid()]
 
         self.model = nn.Sequential(*model)
 
