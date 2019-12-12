@@ -19,7 +19,7 @@ from   util                   import save_img
 
 import random
 import time
-
+import datetime
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
@@ -131,8 +131,9 @@ mask_channel[:,:,center - d:center+d,center - d:center+d] = white_channel
 if opt.cuda:
   mask_channel = mask_channel.cuda()
 
-start_time = time.time()
-dirname = 'testing_output\\' + str(start_time)
+start_date = datetime.date.today()
+start_time = datetime.datetime.now()
+dirname = 'testing_output\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
 os.mkdir(dirname)
 
 def tensor_plot2image(__input,name,iteration=1):
