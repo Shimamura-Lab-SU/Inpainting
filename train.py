@@ -68,7 +68,7 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(3, 3, opt.ngf, 'batch', False, [0])
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
@@ -191,10 +191,10 @@ def train(epoch):
 
     #maskとrealCの結合
     #real_c_4d = torch.utils.data.ConcatDataset(real_c,mask_channel)
-    real_c_4d = torch.cat((real_b,mask_channel),1)
+    real_c_4d = torch.cat((real_c,mask_channel),1)
     #fake_cはreal_cをGeneratorにかけたもの
     #tensor_plot2image(real_c,'realC',iteration)
-    fake_c_raw = netG(real_c_4d) #穴画像
+    fake_c_raw = netG(real_b) #穴画像
 
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
@@ -329,18 +329,14 @@ def train(epoch):
     #12/9新しくforwardを導入。fakeb_hallsizeをもう一度作ってもらう
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) 
-    real_c_4d = torch.cat((real_b,mask_channel),1)
-    fake_c_raw = netG.forward(real_c_4d)#穴画像
+    real_c_4d = torch.cat((real_c,mask_channel),1)
+    fake_c_raw = netG.forward(real_b)#穴画像
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
     fake_c_trim2 = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d])
 
 
-    tensor_plot2image(fake_c,'fakeC_2',iteration)
-    tensor_plot2image(fake_c_raw,'fakeC_Raw_2',iteration)
-    tensor_plot2image(real_c,'realC_2',iteration)
-    tensor_plot2image(real_b,'realb_2',iteration)
 
     #tensor_plot2image(fake_c,'fakeC',iteration)
 
@@ -351,8 +347,10 @@ def train(epoch):
     fake_c_masked = torch.mul(fake_c, mask_channel_3d) #なんか1次元になっちゃう
     real_b_masked = torch.mul(real_b, mask_channel_3d)
 
-    reconstruct_error = criterionL1(fake_c_masked, real_b_masked) # 生成画像とオリジナルの差
-    tensor_plot2image(fake_c_masked[0][0],'fake_c_mono',iteration)
+
+    reconstruct_error = criterionL1(fake_c_raw, real_b) # 生成画像とオリジナルの差
+    tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
+    tensor_plot2image(real_b_masked,'real_b_masked',iteration)
 
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
