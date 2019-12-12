@@ -154,16 +154,16 @@ def train(epoch):
     #tensor_plot2image(fake_start_image,'fakestart',iteration)
     real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更
     
-    real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+    #real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
     #fake_cはreal_cをGeneratorにかけたもの
-    tensor_plot2image(real_c,'realC',iteration)
+    #tensor_plot2image(real_c,'realC',iteration)
     fake_c_raw = netG(real_b) #穴画像
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
 
     
 
-    fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
+    #fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
 
     #fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
@@ -297,8 +297,8 @@ def train(epoch):
     d = math.floor(Local_Window / 4) 
     
     fake_c_raw = netG.forward(real_b)#穴画像
-    fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
-    fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
+    #fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
+    #fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
 
 
