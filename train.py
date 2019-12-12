@@ -152,14 +152,14 @@ def train(epoch):
     d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
 
     #tensor_plot2image(fake_start_image,'fakestart',iteration)
-    real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更
+    #real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更
     
     #real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
     #fake_cはreal_cをGeneratorにかけたもの
     #tensor_plot2image(real_c,'realC',iteration)
     fake_c_raw = netG(real_b) #穴画像
-    fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
+    #fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
 
     
 
@@ -183,7 +183,7 @@ def train(epoch):
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
 
-    fake_b = real_b.clone() #参照渡しになっていたものを値渡しに変更
+    #fake_b = real_b.clone() #参照渡しになっていたものを値渡しに変更
     #fake_b[:,:,center - d:center+d,center - d:center+d] = copy(fake_b_hallsize)
 
     #fake_b = fake_b_hallsize
@@ -204,15 +204,15 @@ def train(epoch):
 
     real_a_trim = copy(real_a[:,:,center-d:center+d,center-d:center+d]) 
     real_b_trim = copy(real_b[:,:,center-d:center+d,center-d:center+d]) 
-    fake_b_trim = copy(fake_b[:,:,center-d:center+d,center-d:center+d])
+    #fake_b_trim = copy(fake_b[:,:,center-d:center+d,center-d:center+d])
 
     real_a_trim2 = copy(real_a[:,:,center-d2:center+d2,center-d2:center+d2]) 
     real_b_trim2 = copy(real_b[:,:,center-d2:center+d2,center-d2:center+d2]) 
-    fake_b_trim2 = copy(fake_b[:,:,center-d2:center+d2,center-d2:center+d2])
+    #fake_b_trim2 = copy(fake_b[:,:,center-d2:center+d2,center-d2:center+d2])
 
 
-    fake_ab = torch.cat((real_b, fake_b), 1)
-    fake_ab_trim = torch.cat((real_b_trim, fake_b_trim), 1)
+    #fake_ab = torch.cat((real_b, fake_b), 1)
+    #fake_ab_trim = torch.cat((real_b_trim, fake_b_trim), 1)
 
 
     #tensor_plot2image(real_a,'realA_1',iteration)
@@ -231,8 +231,8 @@ def train(epoch):
     #fake_b_canny = cv2.Canny(fake_b_trim, 100,600)
     #canny_ab = torch.cat((real_a_canny,fake_b_canny), 1)
 
-    detatched_trim = fake_ab_trim.detach()
-    detatched = fake_ab.detach()#detatched.shape ..[batchsize,6,256,256]
+    #detatched_trim = fake_ab_trim.detach()
+    #detatched = fake_ab.detach()#detatched.shape ..[batchsize,6,256,256]
     #detatched_canny = canny_ab.detach()
     #グローバルDiscriminator
 
