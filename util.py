@@ -2,6 +2,8 @@ import numpy as np
 from PIL import Image
 #import Image
 
+
+
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in [".png", ".jpg", ".jpeg"])
 
