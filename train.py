@@ -296,7 +296,7 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      vutils.save_image(fake_b.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
+      vutils.save_image(fake_b_hallsize.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
 
   #1epoch毎に出力してみる
   
