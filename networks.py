@@ -169,40 +169,40 @@ class ResnetGenerator(nn.Module):
 
         #[]で囲って配列でまとめてるだけなので不要なnormalizationは取り除く
         #conv2
-        model += [nn.Conv2d(ngf * 1, ngf * 2,kernel_size = 3, stride = 2,padding = 1), norm_layer(ngf * 2, affine = True)]
+        model += [nn.Conv2d(ngf * 1, ngf * 2,kernel_size = 3, stride = 2,padding = 1), norm_layer(ngf * 2, affine = True), nn.ReLU(True)]
         #conv3
-        model += [nn.Conv2d(ngf * 2, ngf * 2,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 2, affine = True)]
+        model += [nn.Conv2d(ngf * 2, ngf * 2,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 2, affine = True), nn.ReLU(True)]
         #----------------------
         #conv4
-        model += [nn.Conv2d(ngf * 2, ngf * 4,kernel_size = 3, stride = 2,padding = 1), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 2, ngf * 4,kernel_size = 3, stride = 2,padding = 1), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #conv5
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #conv6
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #----------------------
         #Dilated conv7 dilationするとテンソルの次元数が下がって計算が合わなくなる 2 4 8　16 → 1 1 1 1
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 2, dilation = 2), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 2, dilation = 2), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #Dilated conv8
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 4, dilation = 4), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 4, dilation = 4), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #Dilated conv9
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 8, dilation = 8), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 8, dilation = 8), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #Dilated conv10
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 16, dilation = 16), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 16, dilation = 16), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #----------------------
         #conv11
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #conv12
-        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True)]
+        model += [nn.Conv2d(ngf * 4, ngf * 4,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 4, affine = True), nn.ReLU(True)]
         #deconv
-        model += [nn.ConvTranspose2d(ngf * 4, ngf * 2,kernel_size = 4, stride = 2,padding = 1), norm_layer(ngf * 2, affine = True)]
+        model += [nn.ConvTranspose2d(ngf * 4, ngf * 2,kernel_size = 4, stride = 2,padding = 1), norm_layer(ngf * 2, affine = True), nn.ReLU(True)]
         #conv
-        model += [nn.Conv2d(ngf * 2, ngf * 2,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 2, affine = True)]
+        model += [nn.Conv2d(ngf * 2, ngf * 2,kernel_size = 3, stride = 1,padding = 1), norm_layer(ngf * 2, affine = True), nn.ReLU(True)]
         #deconv  
-        model += [nn.ConvTranspose2d(ngf * 2, ngf * 1,kernel_size = 4, stride = 2,padding = 1), norm_layer(ngf, affine = True)]
+        model += [nn.ConvTranspose2d(ngf * 2, ngf * 1,kernel_size = 4, stride = 2,padding = 1), norm_layer(ngf, affine = True), nn.ReLU(True)]
         #conv
-        model += [nn.Conv2d(ngf * 1, int(ngf / 2),kernel_size = 3, stride = 1,padding = 1), norm_layer(int(ngf/ 2 ), affine = True)]
+        model += [nn.Conv2d(ngf * 1, int(ngf / 2),kernel_size = 3, stride = 1,padding = 1), norm_layer(int(ngf/ 2 ), affine = True), nn.ReLU(True)]
         #output
-        model += [nn.Conv2d(int(ngf / 2) , output_nc,kernel_size = 3, stride = 1,padding = 1), norm_layer(output_nc, affine = True)]
+        model += [nn.Conv2d(int(ngf / 2) , output_nc,kernel_size = 3, stride = 1,padding = 1), norm_layer(output_nc, affine = True), nn.ReLU(True)]
         #model += [nn.Sigmoid()]
 
         self.model = nn.Sequential(*model)

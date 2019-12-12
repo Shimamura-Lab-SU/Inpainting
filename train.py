@@ -31,7 +31,7 @@ parser.add_argument('--input_nc', type=int, default=3, help='input image channel
 parser.add_argument('--output_nc', type=int, default=3, help='output image channels')
 parser.add_argument('--ngf', type=int, default=64, help='generator filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='discriminator filters in first conv layer')
-parser.add_argument('--lr', type=float, default=0.00015, help='Learning Rate. Default=0.002')
+parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Default=0.002')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', help='use cuda?')
 parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
@@ -87,10 +87,10 @@ criterionL1 = nn.L1Loss()
 criterionMSE = nn.MSELoss()
 
 # setup optimizer
-optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-optimizerD_Global = optim.Adam(netD_Global.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-optimizerD_Local = optim.Adam(netD_Local.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-optimizerD_Edge = optim.Adam(netD_Edge.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr)
+optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr)
+optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr)
+optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr)
 
 print('---------- Networks initialized -------------')
 print_network(netG)
@@ -147,6 +147,7 @@ def tensor_plot2image(__input,name,iteration=1):
 
 
 def train(epoch):
+  #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
     real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
     
@@ -185,7 +186,7 @@ def train(epoch):
     real_b_masked = torch.mul(real_b, mask_channel_3d)
 
 
-    reconstruct_error = criterionL1(fake_c_raw, real_b) # 生成画像とオリジナルの差
+    reconstruct_error = criterionMSE(fake_c_raw, real_b) # 生成画像とオリジナルの差
     tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
     tensor_plot2image(real_b_masked,'real_b_masked',iteration)
 
@@ -215,10 +216,9 @@ def train(epoch):
       tensor_plot2image(fake_c_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
       #vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
-    #最初に選出されたバッチはテスト用に補完する
-    if(iteration == 1):
-      testing_real_b = real_b
-      testing_real_c = real_c
+  #Discriminatorの学習タスク
+  
+
   #1epoch毎に出力してみる
   
 
