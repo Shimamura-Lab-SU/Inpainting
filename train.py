@@ -153,7 +153,7 @@ def train(epoch):
 
     #fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
     #fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
-    fake_b_hallsize = netG(real_b) #fake_bが偽画像？←そうだよ
+    fake_c_raw = netG(real_b) #fake_bが偽画像？←そうだよ
 
     
 
@@ -278,10 +278,10 @@ def train(epoch):
    # loss_g2 = criterionMSE(pred_fakeL, true_tensor) #lossを統一することによってGeneratorが正しく機能するか？
 
     #12/9新しくforwardを導入。fakeb_hallsizeをもう一度作ってもらう
-    fake_b_hallsize = netG.forward(real_b)
-    reconstruct_error = criterionL1(fake_b_hallsize, real_b) # 生成画像とオリジナルの差
-    vutils.save_image(fake_b_hallsize[0][1].detach(), '{}\\real_sample00_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
-    tensor_plot2image(fake_b_hallsize,'fakeb_{}'.format(epoch),iteration)
+    fake_c_raw = netG.forward(real_b)
+    reconstruct_error = criterionMSE(fake_c_raw, real_b) # 生成画像とオリジナルの差
+    vutils.save_image(fake_c_raw[0][1].detach(), '{}\\fake_sample1212_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
+    tensor_plot2image(fake_c_raw,'fakec_raw_1212_{}'.format(epoch),iteration)
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
     #loss_g.forward()
@@ -296,7 +296,7 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      vutils.save_image(fake_b_hallsize.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
+      vutils.save_image(fake_c_raw.detach(), '{}\\fake_samples_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
 
   #1epoch毎に出力してみる
   
