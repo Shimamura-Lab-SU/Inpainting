@@ -18,7 +18,7 @@ import torch.backends.cudnn as cudnn
 from   util                   import save_img
 
 import random
-
+import time
 
 
 # Training settings
@@ -68,7 +68,7 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(3, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
@@ -131,9 +131,13 @@ mask_channel[:,:,center - d:center+d,center - d:center+d] = white_channel
 if opt.cuda:
   mask_channel = mask_channel.cuda()
 
+start_time = time.time()
+dirname = 'testing_output\\' + str(start_time)
+os.mkdir(dirname)
+
 def tensor_plot2image(__input,name,iteration=1):
   if(iteration == 1):
-    path = os.getcwd() + '\\testing_output\\'
+    path = os.getcwd() + '\\' + dirname + '\\'
     vutils.save_image(__input.detach(), path + name + '.jpg')
     print('saved testing image')
 
@@ -189,7 +193,7 @@ def train(epoch):
     real_c_4d = torch.cat((real_c,mask_channel),1)
     #fake_cはreal_cをGeneratorにかけたもの
     #tensor_plot2image(real_c,'realC',iteration)
-    fake_c_raw = netG(real_c) #穴画像
+    fake_c_raw = netG(real_c_4d) #穴画像
 
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
@@ -325,7 +329,7 @@ def train(epoch):
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) 
     real_c_4d = torch.cat((real_c,mask_channel),1)
-    fake_c_raw = netG.forward(real_c)#穴画像
+    fake_c_raw = netG.forward(real_c_4d)#穴画像
     fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
     fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
@@ -346,7 +350,7 @@ def train(epoch):
     fake_c_masked = torch.mul(fake_c, mask_channel_3d) #なんか1次元になっちゃう
     real_b_masked = torch.mul(real_b, mask_channel_3d)
 
-    reconstruct_error = criterionL1(fake_c_raw, real_b) # 生成画像とオリジナルの差
+    reconstruct_error = criterionL1(fake_c_masked, real_b_masked) # 生成画像とオリジナルの差
     tensor_plot2image(fake_c_masked[0][0],'fake_c_mono',iteration)
 
 
