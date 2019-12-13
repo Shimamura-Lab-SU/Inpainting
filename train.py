@@ -68,7 +68,7 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(3, 3, opt.ngf, 'batch', False, [0])
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
@@ -102,6 +102,9 @@ print('-----------------------------------------------')
 real_a = torch.FloatTensor(opt.batchSize, opt.input_nc, 256, 256)
 real_b = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
+#基本的なテンソルに使うShape
+#tensor_shape = torch.tensor(opt.batchSize,3,image_size,image_size)
+tensor_shape = torch.empty([opt.batchSize,3,image_size,image_size])
 if opt.cuda:
   #netD = netD.cuda()
   netD_Global = netD_Global.cuda()
@@ -123,14 +126,24 @@ center = math.floor(image_size / 2)
 d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
 d2 = math.floor(Local_Window / 2) 
 
-black_channel = torch.full((opt.batchSize,1,image_size,image_size),False)
-white_channel = torch.full((opt.batchSize,1,hall_size,hall_size), True)
+#black_channel = torch.tensor(dtype=bool)
+
+black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
+white_channel_boolen = torch.full((opt.batchSize,1,hall_size,hall_size), True,dtype=bool)
+
+black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
+white_channel_float = torch.full((opt.batchSize,1,hall_size,hall_size), True)
 
 
-mask_channel = black_channel.clone()
-mask_channel[:,:,center - d:center+d,center - d:center+d] = white_channel
+mask_channel_float = black_channel_float.clone()
+mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_float
+
+
+mask_channel_boolen = black_channel_boolen.clone()
+mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
 if opt.cuda:
-  mask_channel = mask_channel.cuda()
+  mask_channel_boolen = mask_channel_boolen.cuda()
+  mask_channel_float = mask_channel_float.cuda()
 
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
@@ -172,23 +185,30 @@ def train(epoch):
     real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
   
-    real_c_4d = torch.cat((real_c,mask_channel),1)
+    real_c_4d = torch.cat((real_c,mask_channel_float),1)
+    #real_c_4d_b = torch.cat((real_c,mask_channel_boolen),1) #floatとboolはconcatできない
 
 
     #2回目のジェネレータ起動(forwardをするため)
-    fake_c_raw = netG.forward(real_c_4d)#穴画像
-    #fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
-    #fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
+    #fake_c_raw = torch.zeros(tensor_shape.size(),requires_grad=True) 
+    fake_c_raw = netG.forward(real_b)#穴画像
+    #copyがデータを壊している
+    fake_c_masked = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d]) 
+    real_b_masked = copy(real_b[:,:,center-d:center+d,center-d:center+d]) 
 
-    mask_channel_3d = torch.cat((mask_channel,mask_channel,mask_channel),1)
+    mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
 
-    fake_c_masked = torch.mul(fake_c_raw, mask_channel_3d) 
-    real_b_masked = torch.mul(real_b, mask_channel_3d)
+    fake_c_trim = torch.mul(fake_c_raw, mask_channel_3d_b) 
+    real_b_trim = torch.mul(real_b, mask_channel_3d_b)
 
+    #recept_tensor = torch.
 
-    reconstruct_error = criterionMSE(fake_c_raw, real_b) # 生成画像とオリジナルの差
-    tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
-    tensor_plot2image(real_b_masked,'real_b_masked',iteration)
+    fake_c_masked = torch.masked_select(fake_c_raw, mask_channel_3d_b) 
+    real_b_masked = torch.masked_select(real_b, mask_channel_3d_b) #1次元で(61440)出てくるので..
+
+    reconstruct_error = criterionMSE(fake_c_masked,real_b_masked) # 生成画像とオリジナルの差
+    #tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
+    #tensor_plot2image(real_b_masked,'real_b_masked',iteration)
 
 
 
@@ -197,6 +217,9 @@ def train(epoch):
     tensor_plot2image(real_c,'realC_1',iteration)
     tensor_plot2image(real_b,'realb_1',iteration)
 
+    #マスクをはりつけたもの
+    fake_c = real_b.clone()
+    fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d] 
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
@@ -214,6 +237,7 @@ def train(epoch):
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
       tensor_plot2image(fake_c_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
+      tensor_plot2image(fake_c,'fakeC_Last_Epoch_{}'.format(epoch),iteration)
       #vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
   #Discriminatorの学習タスク
