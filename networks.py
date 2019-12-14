@@ -213,56 +213,7 @@ class ResnetGenerator(nn.Module):
       else:
         return self.model(input)
 
-#元々のジェネレータの作り。参考にすべし
-class Old_ResnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[]):
-        assert(n_blocks >= 0)
-        super(Old_ResnetGenerator, self).__init__()
-        self.input_nc = input_nc
-        self.output_nc = output_nc
-        self.ngf = ngf
-        self.gpu_ids = gpu_ids
 
-        #入力層
-        #model = [nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
-        #         norm_layer(ngf, affine=True),
-        #         nn.ReLU(True)]
-        model = [nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
-                 nn.ReLU(True),
-                 nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
-                 nn.ReLU(True)]
-        
-
-        n_downsampling = 2
-        for i in range(n_downsampling):
-            mult = 2**i
-            model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
-                                stride=2, padding=1),
-                      norm_layer(ngf * mult * 2, affine=True),
-                      nn.ReLU(True)]
-
-        mult = 2**n_downsampling
-        for i in range(n_blocks):
-            model += [ResnetBlock(ngf * mult, 'zero', norm_layer=norm_layer, use_dropout=use_dropout)]
-
-        for i in range(n_downsampling):
-            mult = 2**(n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
-                                         kernel_size=3, stride=2,
-                                         padding=1, output_padding=1),
-                      norm_layer(int(ngf * mult / 2), affine=True),
-                      nn.ReLU(True)]
-
-        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)]
-        model += [nn.Tanh()]
-
-        self.model = nn.Sequential(*model)
-
-    def forward(self, input):
-      if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
-      else:
-        return self.model(input)
 
 
 
@@ -276,19 +227,17 @@ class Global_Discriminator(nn.Module):
       self.ndf =ndf
 
       #1
-      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),
-                
-                nn.ReLU(True)]
+      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1)]
-      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
-      #FullConvolution層  
+      #FullConvolution層 
       model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
 
       #model += [nn.Linear(512 * 4 * 4, output_nc)]
