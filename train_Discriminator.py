@@ -140,9 +140,11 @@ false_label_tensor  = torch.zeros(opt.batchSize,1024,1,1)
 true_label_tensor = Variable(torch.LongTensor())
 true_label_tensor  = torch.ones(opt.batchSize,1024,1,1)
 
+#Mdの場所のためのシード固定
 seed = random.seed(1297)
 padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか
 
+#マスク、ラベルテンソルのgpuセット
 if opt.cuda:
   mask_channel_boolen = mask_channel_boolen.cuda()
   mask_channel_float = mask_channel_float.cuda()
@@ -167,27 +169,25 @@ def tensor_plot2image(__input,name,iteration=1):
 def train(epoch):
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
-    #Md用の穴の場所決め
  
-    #LocalDiscrimninator用のMd窓←LoaclDiscriminatorに窓は必要なくないか？
-    #
+    #Mdの位置
     Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
     Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
-    #
+    #Mdを↑の位置に当てはめる
     random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_float
     random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_boolen
 
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
-    real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)
+    real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)#realAへのデータ流し込み
     #####################################################################
     #先ずGeneratorを起動して補完モデルを行う
     #####################################################################
 
     #fake_start_imageは単一画像中の平均画素で埋められている
     fake_start_image = torch.clone(real_a_image)
-    for i in range(0, opt.batchSize):
+    for i in range(0, opt.batchSize):#中心中心
       fake_start_image[i][0] = torch.mean(real_a_image[i][0])
       fake_start_image[i][1] = torch.mean(real_a_image[i][1])
       fake_start_image[i][2] = torch.mean(real_a_image[i][2])
@@ -196,26 +196,23 @@ def train(epoch):
     fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
     fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
 
-    #12/10real_b_imageは真値の中央に平均画素を詰めたもの
+    #12/10real_b_imageはreal_aの穴に平均画素を詰めたもの
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
     real_b_image = real_a_image.clone()    
     real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
-  
+    #マスクとrealbの結合
     real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
-
-
-    #2回目のジェネレータ起動(forwardをするため)
+    #学習済みジェネレータで偽画像を作成
     fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
-    #fake_b_image = real_a_image.clone()#↓で穴以外はreal_a_imageで上書きする
-    #fake_b_image[:,:,center - d:center+d,center - d:center+d] = fake_b_image_raw[:,:,center - d:center+d,center - d:center+d]
-
+   
 
     #####################################################################
     #Discriminatorを走らせる
     #####################################################################
 
+    #center..中央の定数
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
@@ -226,37 +223,34 @@ def train(epoch):
         
     #GlobalDiscriminatorの起動
 
-    #厳密にfake_b_image_rawが　C(x,Mc)なのか　fake_b_imageが C(x,Mc)なのかが若干不明(fake_b_imageな気もする)
+    #真画像とマスクの結合..4次元に
     real_a_image_4d = torch.cat((real_a_image,random_mask_float),1)
-    #pred_realは正しい画像を入力としたときの尤度テンソル(bat*3*256*256)
+
+    #pred_realは正しい画像を入力としたときの尤度テンソル(batchSize*1024*1*1)
     pred_realG =  netD_Global.forward(real_a_image_4d)
 
+    #偽画像とマスクの結合..4次元に  
     fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
 
-    #pred_fakeは偽生成画像を入力としたときの尤度テンソル(bat*3*256*256)
+    #pred_fakeは偽生成画像を入力としたときの尤度テンソル
     pred_fakeG = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
-
-    
-
-    #loss_d_realG = torch.log(criterionBCE(pred_realG,true_label_tensor))
-    #loss_d_fakeG = torch.log(criterionBCE(pred_fakeG, false_label_tensor)) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #loss_d = loss_d_realG + loss_d_fakeG
     loss_d_realG = criterionBCE(pred_realG, true_label_tensor)
     loss_d_fakeG = criterionBCE(pred_fakeG, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
-    #logを使っているとlossが0になると困る
+    #2つのロスの足し合わせ
     loss_d =  loss_d_realG + loss_d_fakeG 
-
+    #backward
     loss_d.backward()
     
 
- 
+    #optimizerの更新
     optimizerD_Global.step()
 
 
     print("===> Epoch[{}]({}/{}):  Loss_D_Global: {:.4f}".format(
-       epoch, iteration, len(training_data_loader),  loss_d_fakeG.item()))
+       epoch, iteration, len(training_data_loader),  loss_d.item()))
  
   
 
@@ -269,14 +263,7 @@ def test(epoch):
       if opt.cuda:
         input = input.cuda()
         target = target.cuda()
-#12/10　テストのためいったんなし
-      #prediction = netG(input)
-      #mse = criterionMSE(prediction, target)
-      #psnr = 10 * log10(1 / mse.item())
-      #avg_psnr += psnr
-    #print("===> Avg. PSNR: {:.4f} dB".format(avg_psnr / len(testing_data_loader)))
-     #チェックポイントの段階のモデルからアウトプットを作成する
-  
+
     if opt.cuda:
       netG = netG.cuda()
       input = input.cuda()
@@ -303,12 +290,6 @@ def checkpoint(epoch):
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
 
-
- 
-
-
 for epoch in range(1, opt.nEpochs + 1):
   train(epoch)
-  #test(epoch)
-  
   checkpoint(epoch)

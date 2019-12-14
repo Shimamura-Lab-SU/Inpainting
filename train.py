@@ -168,7 +168,7 @@ def train(epoch):
     real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)
 
     #fake_start_imageは単一画像中の平均画素でfillされている
-    fake_start_image = torch.clone(real_a0_image)
+    fake_start_image = torch.clone(real_a_image)
     for i in range(0, opt.batchSize):
       fake_start_image[i][0] = torch.mean(real_a0_image[i][0])
       fake_start_image[i][1] = torch.mean(real_a0_image[i][1])
