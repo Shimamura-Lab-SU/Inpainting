@@ -100,8 +100,8 @@ print_network(netD_Local)
 print_network(netD_Edge)
 print('-----------------------------------------------')
 
-real_a = torch.FloatTensor(opt.batchSize, opt.input_nc, 256, 256)
-real_b = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
+real_a0_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
+real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 #基本的なテンソルに使うShape
 #tensor_shape = torch.tensor(opt.batchSize,3,image_size,image_size)
@@ -116,11 +116,10 @@ if opt.cuda:
   criterionGAN = criterionGAN.cuda()
   criterionL1 = criterionL1.cuda()
   criterionMSE = criterionMSE.cuda()
-  real_a = real_a.cuda()
-  real_b = real_b.cuda()
+  real_a_image = real_a_image.cuda()
 
-real_a = Variable(real_a)
-real_b = Variable(real_b)
+real_a0_image = Variable(real_a0_image)
+real_a_image = Variable(real_a_image)
 
 #mask_channelは1*256*256の白黒マスク
 center = math.floor(image_size / 2)
@@ -163,17 +162,17 @@ def tensor_plot2image(__input,name,iteration=1):
 def train(epoch):
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
-    real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
+    real_a0_image_cpu, real_a_image_cpu = batch[0], batch[1]#batchは元画像？
     
-    real_a.data.resize_(real_a_cpu.size()).copy_(real_a_cpu)
-    real_b.data.resize_(real_b_cpu.size()).copy_(real_b_cpu)
+    real_a0_image.data.resize_(real_a0_image_cpu.size()).copy_(real_a0_image_cpu)
+    real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)
 
     #fake_start_imageは単一画像中の平均画素でfillされている
-    fake_start_image = torch.clone(real_a)
+    fake_start_image = torch.clone(real_a0_image)
     for i in range(0, opt.batchSize):
-      fake_start_image[i][0] = torch.mean(real_a[i][0])
-      fake_start_image[i][1] = torch.mean(real_a[i][1])
-      fake_start_image[i][2] = torch.mean(real_a[i][2])
+      fake_start_image[i][0] = torch.mean(real_a0_image[i][0])
+      fake_start_image[i][1] = torch.mean(real_a0_image[i][1])
+      fake_start_image[i][2] = torch.mean(real_a0_image[i][2])
 
     #fake_start_image2を穴のサイズにトリムしたもの
     fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
@@ -182,45 +181,45 @@ def train(epoch):
     #12/10real_cは真値の中央に平均画素を詰めたもの
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-    real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更    
-    real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+    real_b_image = real_a_image.clone() #参照渡しになっていたものを値渡しに変更    
+    real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
   
-    real_c_4d = torch.cat((real_c,mask_channel_float),1)
-    #real_c_4d_b = torch.cat((real_c,mask_channel_boolen),1) #floatとboolはconcatできない
+    real_c_4d = torch.cat((real_b_image,mask_channel_float),1)
+    #real_c_4d_b = torch.cat((real_b_image,mask_channel_boolen),1) #floatとboolはconcatできない
 
 
     #2回目のジェネレータ起動(forwardをするため)
-    #fake_c_raw = torch.zeros(tensor_shape.size(),requires_grad=True) 
-    fake_c_raw = netG.forward(real_c_4d)#穴画像
+    #fake_b_image_raw = torch.zeros(tensor_shape.size(),requires_grad=True) 
+    fake_b_image_raw = netG.forward(real_c_4d)#穴画像
     #copyがデータを壊している
-    fake_c_masked = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d]) 
-    real_b_masked = copy(real_b[:,:,center-d:center+d,center-d:center+d]) 
+    fake_b_image_masked = copy(fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]) 
+    real_a_image_masked = copy(real_a_image[:,:,center-d:center+d,center-d:center+d]) 
 
     mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
 
-    fake_c_trim = torch.mul(fake_c_raw, mask_channel_3d_b) 
-    real_b_trim = torch.mul(real_b, mask_channel_3d_b)
+    fake_b_image_trim = torch.mul(fake_b_image_raw, mask_channel_3d_b) 
+    real_a_image_trim = torch.mul(real_a_image, mask_channel_3d_b)
 
     #recept_tensor = torch.
 
-    fake_c_masked = torch.masked_select(fake_c_raw, mask_channel_3d_b) 
-    real_b_masked = torch.masked_select(real_b, mask_channel_3d_b) #1次元で(61440)出てくるので..
+    fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
+    real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
 
-    reconstruct_error = criterionMSE(fake_c_masked,real_b_masked) # 生成画像とオリジナルの差
-    #tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
-    #tensor_plot2image(real_b_masked,'real_b_masked',iteration)
+    reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked) # 生成画像とオリジナルの差
+    #tensor_plot2image(fake_b_image_masked,'fake_b_image_masked',iteration)
+    #tensor_plot2image(real_a_image_masked,'real_a_image_masked',iteration)
 
 
 
-    #tensor_plot2image(fake_c,'fakeC_1',iteration)
-    tensor_plot2image(fake_c_raw,'fakeC_Raw_1',iteration)
-    tensor_plot2image(real_c,'realC_1',iteration)
-    tensor_plot2image(real_b,'realb_1',iteration)
+    #tensor_plot2image(fake_b_image,'fakeC_1',iteration)
+    tensor_plot2image(fake_b_image_raw,'fakeC_Raw_1',iteration)
+    tensor_plot2image(real_b_image,'realC_1',iteration)
+    tensor_plot2image(real_a_image,'realb_1',iteration)
 
     #マスクをはりつけたもの
-    fake_c = real_b.clone()
-    fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d] 
+    fake_b_image = real_a_image.clone()
+    fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
 
     #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
     loss_g = reconstruct_error
@@ -237,9 +236,9 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
        epoch, iteration, len(training_data_loader),  loss_g.item()))
     if(iteration == 1):
-      tensor_plot2image(fake_c_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
-      tensor_plot2image(fake_c,'fakeC_Last_Epoch_{}'.format(epoch),iteration)
-      #vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+      tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
+      tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration)
+      #vutils.save_image(fake_b_image_raw.detach(), '{}\\fake_b_image_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
 
   #Discriminatorの学習タスク
   

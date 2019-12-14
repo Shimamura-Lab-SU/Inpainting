@@ -64,33 +64,27 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500
-#trainsetの要素削減
+max_dataset_num = 1500 #データセットの数
+
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
 
-#先ずGeneratorを読み込んで入れる
+#先ず学習済みのGeneratorを読み込んで入れる
 netG = torch.load(opt.G_model)
-#NetDを3つ構築するのがよい
-#netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
-#そもそもいくつが入力なのか
+
 disc_input_nc = 4
 disc_outpuc_nc = 1024
 netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Global = define_D_Global(hogehoge)
-#netD_Local  = define_D_Local(hogehoge)
-#netD_Edge   = define_D_Edge(hogehoge)
 
 
 criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
 criterionMSE = nn.MSELoss()
-criterionCROSS = nn.CrossEntropyLoss()
-criterionBCE = nn.BCELoss()
+criterionBCE = nn.BCELoss()#Discriminatorに使うため新設
 # setup optimizer
 optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr)
 optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr)
@@ -104,24 +98,23 @@ print_network(netD_Local)
 print_network(netD_Edge)
 print('-----------------------------------------------')
 
-real_a = torch.FloatTensor(opt.batchSize, opt.input_nc, 256, 256)
-real_b = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
+real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 if opt.cuda:
-  #netD = netD.cuda()
+  #
   netD_Global = netD_Global.cuda()
   netD_Local  = netD_Local.cuda()
   netD_Edge   = netD_Edge.cuda()
-
   netG = netG.cuda()
+  #
   criterionGAN = criterionGAN.cuda()
   criterionL1 = criterionL1.cuda()
   criterionMSE = criterionMSE.cuda()
-  real_a = real_a.cuda()
-  real_b = real_b.cuda()
+  criterionBCE = criterionBCE.cuda()
+  #
+  real_a_image = real_a_image.cuda()
 
-real_a = Variable(real_a)
-real_b = Variable(real_b)
+real_a_image = Variable(real_a_image)
 
 #mask_channelは1*256*256の白黒マスク
 center = math.floor(image_size / 2)
@@ -142,10 +135,10 @@ mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel
 random_mask_float = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
 random_mask_boolen = black_channel_boolen.clone()
 
-false_tensor = Variable(torch.LongTensor())
-false_tensor  = torch.zeros(opt.batchSize,1024,1,1)
-true_tensor = Variable(torch.LongTensor())
-true_tensor  = torch.ones(opt.batchSize,1024,1,1)
+false_label_tensor = Variable(torch.LongTensor())
+false_label_tensor  = torch.zeros(opt.batchSize,1024,1,1)
+true_label_tensor = Variable(torch.LongTensor())
+true_label_tensor  = torch.ones(opt.batchSize,1024,1,1)
 
 seed = random.seed(1297)
 padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか
@@ -155,8 +148,8 @@ if opt.cuda:
   mask_channel_float = mask_channel_float.cuda()
   random_mask_boolen = mask_channel_boolen.cuda()
   random_mask_float = mask_channel_float.cuda()
-  true_tensor = true_tensor.cuda()
-  false_tensor = false_tensor.cuda()
+  true_label_tensor = true_label_tensor.cuda()
+  false_label_tensor = false_label_tensor.cuda()
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 dirname = 'testing_output_disc\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
@@ -185,39 +178,38 @@ def train(epoch):
     random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_boolen
 
 
-    real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
+    real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
-    real_a.data.resize_(real_a_cpu.size()).copy_(real_a_cpu)
-    real_b.data.resize_(real_b_cpu.size()).copy_(real_b_cpu)
+    real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)
     #####################################################################
     #先ずGeneratorを起動して補完モデルを行う
     #####################################################################
-    #fake_start_imageは単一画像中の平均画素でfillされている
 
-    fake_start_image = torch.clone(real_a)
+    #fake_start_imageは単一画像中の平均画素で埋められている
+    fake_start_image = torch.clone(real_a_image)
     for i in range(0, opt.batchSize):
-      fake_start_image[i][0] = torch.mean(real_a[i][0])
-      fake_start_image[i][1] = torch.mean(real_a[i][1])
-      fake_start_image[i][2] = torch.mean(real_a[i][2])
+      fake_start_image[i][0] = torch.mean(real_a_image[i][0])
+      fake_start_image[i][1] = torch.mean(real_a_image[i][1])
+      fake_start_image[i][2] = torch.mean(real_a_image[i][2])
 
     #fake_start_image2を穴のサイズにトリムしたもの
     fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
     fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
 
-    #12/10real_cは真値の中央に平均画素を詰めたもの
+    #12/10real_b_imageは真値の中央に平均画素を詰めたもの
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-    real_c = real_b.clone()    
-    real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+    real_b_image = real_a_image.clone()    
+    real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
   
-    real_c_4d = torch.cat((real_c,mask_channel_float),1)
+    real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
 
 
     #2回目のジェネレータ起動(forwardをするため)
-    fake_c_raw = netG(real_c_4d) # C(x,Mc)
-    #fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
-    #fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
+    fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
+    #fake_b_image = real_a_image.clone()#↓で穴以外はreal_a_imageで上書きする
+    #fake_b_image[:,:,center - d:center+d,center - d:center+d] = fake_b_image_raw[:,:,center - d:center+d,center - d:center+d]
 
 
     #####################################################################
@@ -228,30 +220,30 @@ def train(epoch):
     d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
-    #fake_cはfake_c_rawにreal_bを埋めたもの
-    fake_c = real_b.clone()
-    fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d]
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    fake_b_image = real_a_image.clone()
+    fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
         
     #GlobalDiscriminatorの起動
 
-    #厳密にfake_c_rawが　C(x,Mc)なのか　fake_cが C(x,Mc)なのかが若干不明(fake_cな気もする)
-    real_b_4d = torch.cat((real_b,random_mask_float),1)
+    #厳密にfake_b_image_rawが　C(x,Mc)なのか　fake_b_imageが C(x,Mc)なのかが若干不明(fake_b_imageな気もする)
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float),1)
     #pred_realは正しい画像を入力としたときの尤度テンソル(bat*3*256*256)
-    pred_realG =  netD_Global.forward(real_b_4d)
+    pred_realG =  netD_Global.forward(real_a_image_4d)
 
-    fake_c_4d = torch.cat((fake_c,mask_channel_float),1)
+    fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
 
     #pred_fakeは偽生成画像を入力としたときの尤度テンソル(bat*3*256*256)
-    pred_fakeG = netD_Global.forward(fake_c_4d) #pred_falke=D(C(x,Mc),Mc)
+    pred_fakeG = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
 
     
 
-    #loss_d_realG = torch.log(criterionBCE(pred_realG,true_tensor))
-    #loss_d_fakeG = torch.log(criterionBCE(pred_fakeG, false_tensor)) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    #loss_d_realG = torch.log(criterionBCE(pred_realG,true_label_tensor))
+    #loss_d_fakeG = torch.log(criterionBCE(pred_fakeG, false_label_tensor)) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #loss_d = loss_d_realG + loss_d_fakeG
-    loss_d_realG = criterionBCE(pred_realG, true_tensor)
-    loss_d_fakeG = criterionBCE(pred_fakeG, false_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    loss_d_realG = criterionBCE(pred_realG, true_label_tensor)
+    loss_d_fakeG = criterionBCE(pred_fakeG, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #logを使っているとlossが0になると困る
     loss_d =  loss_d_realG + loss_d_fakeG 
