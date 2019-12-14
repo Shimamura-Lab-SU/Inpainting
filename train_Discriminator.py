@@ -127,14 +127,23 @@ center = math.floor(image_size / 2)
 d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
 d2 = math.floor(Local_Window / 2) 
 
+##白、黒チャネルの定義
 black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
 white_channel_boolen = torch.full((opt.batchSize,1,hall_size,hall_size), True,dtype=bool)
 black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
 white_channel_float = torch.full((opt.batchSize,1,hall_size,hall_size), True)
-mask_channel_float = black_channel_float.clone()
+##Mc(inputMask)の定義
+mask_channel_float = black_channel_float.clone() #mask_channel=Mcに相当,Gが穴を開けた位置(必ず中央)
 mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_float
 mask_channel_boolen = black_channel_boolen.clone()
 mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
+##Md(RandomMask)の定義
+mask_channel_float = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
+mask_channel_boolen = black_channel_boolen.clone()
+
+seed = random.seed(1297)
+padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか
+
 if opt.cuda:
   mask_channel_boolen = mask_channel_boolen.cuda()
   mask_channel_float = mask_channel_float.cuda()
@@ -156,6 +165,17 @@ def tensor_plot2image(__input,name,iteration=1):
 def train(epoch):
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
+    #Md用の穴の場所決め
+    random_mask_float  = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
+    random_mask_boolen = black_channel_boolen.clone()
+    #
+    Mdpos_x = random.randint(0 + padding,image_size - hole_size - padding)
+    Mdpos_y = random.randint(0 + padding,image_size - hole_size - padding)
+    #
+    random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y+hall_size] = white_channel_float
+    random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y+hall_size] = white_channel_boolen
+
+
     real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
     
     real_a.data.resize_(real_a_cpu.size()).copy_(real_a_cpu)
@@ -206,12 +226,14 @@ def train(epoch):
     #GlobalDiscriminatorの起動
     #厳密にfake_c_rawが　C(x,Mc)なのか　fake_cが C(x,Mc)なのかが若干不明(fake_cな気もする)
 
-    real_
+    
+    real_b_4d = torch.cat(real_b,mask_channel_float)
+    #pred_realは正しい画像を入力としたときの尤度テンソル(bat*3*256*256)
+    pred_realG =  math.log(netD_Global.forward(real_b_4d))
 
-    pred_realG = 
+    fake_c_4d = torch.cat(fake_c,mask_channel_float)
 
-    fake_c_4d = torch.cat(fake_c_raw,mask_channel_float)
-
+    #pred_fakeは偽生成画像を入力としたときの尤度テンソル(bat*3*256*256)
     pred_fakeG = netD_Global.forward(fake_c_4d) #pred_falke=D(C(x,Mc),Mc)
     loss_d_fakeG = criterionGAN(pred_fakeG, False) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
     loss_d = loss_d_fakeG()
