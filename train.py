@@ -86,6 +86,7 @@ criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
 criterionMSE = nn.MSELoss()
 
+
 # setup optimizer
 optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr)
 optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr)

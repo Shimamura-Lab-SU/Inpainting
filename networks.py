@@ -292,7 +292,7 @@ class Global_Discriminator(nn.Module):
       model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
 
       #model += [nn.Linear(512 * 4 * 4, output_nc)]
-
+      model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
       #1024次元にしたい
       self.model = nn.Sequential(*model)
 

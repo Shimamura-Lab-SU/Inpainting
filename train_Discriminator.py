@@ -89,7 +89,8 @@ netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
 criterionMSE = nn.MSELoss()
-
+criterionCROSS = nn.CrossEntropyLoss()
+criterionBCE = nn.BCELoss()
 # setup optimizer
 optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr)
 optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr)
@@ -138,8 +139,13 @@ mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_
 mask_channel_boolen = black_channel_boolen.clone()
 mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
 ##Md(RandomMask)の定義
-mask_channel_float = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
-mask_channel_boolen = black_channel_boolen.clone()
+random_mask_float = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
+random_mask_boolen = black_channel_boolen.clone()
+
+false_tensor = Variable(torch.LongTensor())
+false_tensor  = torch.zeros(opt.batchSize,1024,1,1)
+true_tensor = Variable(torch.LongTensor())
+true_tensor  = torch.ones(opt.batchSize,1024,1,1)
 
 seed = random.seed(1297)
 padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか
@@ -147,7 +153,10 @@ padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離�
 if opt.cuda:
   mask_channel_boolen = mask_channel_boolen.cuda()
   mask_channel_float = mask_channel_float.cuda()
-
+  random_mask_boolen = mask_channel_boolen.cuda()
+  random_mask_float = mask_channel_float.cuda()
+  true_tensor = true_tensor.cuda()
+  false_tensor = false_tensor.cuda()
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 dirname = 'testing_output_disc\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
@@ -166,14 +175,14 @@ def train(epoch):
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
     #Md用の穴の場所決め
-    random_mask_float  = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
-    random_mask_boolen = black_channel_boolen.clone()
+ 
+    #LocalDiscrimninator用のMd窓←LoaclDiscriminatorに窓は必要なくないか？
     #
-    Mdpos_x = random.randint(0 + padding,image_size - hole_size - padding)
-    Mdpos_y = random.randint(0 + padding,image_size - hole_size - padding)
+    Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
+    Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
     #
-    random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y+hall_size] = white_channel_float
-    random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y+hall_size] = white_channel_boolen
+    random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_float
+    random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_boolen
 
 
     real_a_cpu, real_b_cpu = batch[0], batch[1]#batchは元画像？
@@ -202,7 +211,7 @@ def train(epoch):
     real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
   
-    real_c_4d = torch.cat((real_c,mask_channel),1)
+    real_c_4d = torch.cat((real_c,mask_channel_float),1)
 
 
     #2回目のジェネレータ起動(forwardをするため)
@@ -224,19 +233,29 @@ def train(epoch):
     fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d]
         
     #GlobalDiscriminatorの起動
+
     #厳密にfake_c_rawが　C(x,Mc)なのか　fake_cが C(x,Mc)なのかが若干不明(fake_cな気もする)
-
-    
-    real_b_4d = torch.cat(real_b,mask_channel_float)
+    real_b_4d = torch.cat((real_b,random_mask_float),1)
     #pred_realは正しい画像を入力としたときの尤度テンソル(bat*3*256*256)
-    pred_realG =  math.log(netD_Global.forward(real_b_4d))
+    pred_realG =  netD_Global.forward(real_b_4d)
 
-    fake_c_4d = torch.cat(fake_c,mask_channel_float)
+    fake_c_4d = torch.cat((fake_c,mask_channel_float),1)
 
     #pred_fakeは偽生成画像を入力としたときの尤度テンソル(bat*3*256*256)
     pred_fakeG = netD_Global.forward(fake_c_4d) #pred_falke=D(C(x,Mc),Mc)
-    loss_d_fakeG = criterionGAN(pred_fakeG, False) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-    loss_d = loss_d_fakeG()
+
+    
+
+    #loss_d_realG = torch.log(criterionBCE(pred_realG,true_tensor))
+    #loss_d_fakeG = torch.log(criterionBCE(pred_fakeG, false_tensor)) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+
+    #loss_d = loss_d_realG + loss_d_fakeG
+    loss_d_realG = criterionBCE(pred_realG, true_tensor)
+    loss_d_fakeG = criterionBCE(pred_fakeG, false_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+
+    #logを使っているとlossが0になると困る
+    loss_d =  loss_d_realG + loss_d_fakeG 
+
     loss_d.backward()
     
 
