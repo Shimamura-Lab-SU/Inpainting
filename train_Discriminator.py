@@ -37,6 +37,8 @@ parser.add_argument('--cuda', action='store_true', help='use cuda?')
 parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
 parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
+parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
+
 opt = parser.parse_args()
 #自家製のハイパーパラメータ
 Output_Each_Epoch = True #エポックの終了時に訓練結果を画像として出力するか否か
@@ -68,11 +70,13 @@ train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 
 print('===> Building model')
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+
+#先ずGeneratorを読み込んで入れる
+netG = torch.load(opt.G_model)
 #NetDを3つ構築するのがよい
 #netD = define_D(opt.input_nc + opt.output_nc, opt.ndf, 'batch', False, [0])
 #そもそもいくつが入力なのか
-disc_input_nc = 6
+disc_input_nc = 4
 disc_outpuc_nc = 1024
 netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
@@ -102,9 +106,6 @@ print('-----------------------------------------------')
 real_a = torch.FloatTensor(opt.batchSize, opt.input_nc, 256, 256)
 real_b = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
-#基本的なテンソルに使うShape
-#tensor_shape = torch.tensor(opt.batchSize,3,image_size,image_size)
-tensor_shape = torch.empty([opt.batchSize,3,image_size,image_size])
 if opt.cuda:
   #netD = netD.cuda()
   netD_Global = netD_Global.cuda()
@@ -126,19 +127,12 @@ center = math.floor(image_size / 2)
 d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
 d2 = math.floor(Local_Window / 2) 
 
-#black_channel = torch.tensor(dtype=bool)
-
 black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
 white_channel_boolen = torch.full((opt.batchSize,1,hall_size,hall_size), True,dtype=bool)
-
 black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
 white_channel_float = torch.full((opt.batchSize,1,hall_size,hall_size), True)
-
-
 mask_channel_float = black_channel_float.clone()
 mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_float
-
-
 mask_channel_boolen = black_channel_boolen.clone()
 mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
 if opt.cuda:
@@ -147,7 +141,7 @@ if opt.cuda:
 
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
-dirname = 'testing_output\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
+dirname = 'testing_output_disc\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
 os.mkdir(dirname)
 
 #確認のための画像出力メソッド
@@ -166,8 +160,11 @@ def train(epoch):
     
     real_a.data.resize_(real_a_cpu.size()).copy_(real_a_cpu)
     real_b.data.resize_(real_b_cpu.size()).copy_(real_b_cpu)
-
+    #####################################################################
+    #先ずGeneratorを起動して補完モデルを行う
+    #####################################################################
     #fake_start_imageは単一画像中の平均画素でfillされている
+
     fake_start_image = torch.clone(real_a)
     for i in range(0, opt.batchSize):
       fake_start_image[i][0] = torch.mean(real_a[i][0])
@@ -181,69 +178,53 @@ def train(epoch):
     #12/10real_cは真値の中央に平均画素を詰めたもの
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-    real_c = real_b.clone() #参照渡しになっていたものを値渡しに変更    
+    real_c = real_b.clone()    
     real_c[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
   
-    real_c_4d = torch.cat((real_c,mask_channel_float),1)
-    #real_c_4d_b = torch.cat((real_c,mask_channel_boolen),1) #floatとboolはconcatできない
+    real_c_4d = torch.cat((real_c,mask_channel),1)
 
 
     #2回目のジェネレータ起動(forwardをするため)
-    #fake_c_raw = torch.zeros(tensor_shape.size(),requires_grad=True) 
-    fake_c_raw = netG.forward(real_c_4d)#穴画像
-    #copyがデータを壊している
-    fake_c_masked = copy(fake_c_raw[:,:,center-d:center+d,center-d:center+d]) 
-    real_b_masked = copy(real_b[:,:,center-d:center+d,center-d:center+d]) 
-
-    mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
-
-    fake_c_trim = torch.mul(fake_c_raw, mask_channel_3d_b) 
-    real_b_trim = torch.mul(real_b, mask_channel_3d_b)
-
-    #recept_tensor = torch.
-
-    fake_c_masked = torch.masked_select(fake_c_raw, mask_channel_3d_b) 
-    real_b_masked = torch.masked_select(real_b, mask_channel_3d_b) #1次元で(61440)出てくるので..
-
-    reconstruct_error = criterionMSE(fake_c_masked,real_b_masked) # 生成画像とオリジナルの差
-    #tensor_plot2image(fake_c_masked,'fake_c_masked',iteration)
-    #tensor_plot2image(real_b_masked,'real_b_masked',iteration)
+    fake_c_raw = netG(real_c_4d) # C(x,Mc)
+    #fake_c = real_b.clone()#↓で穴以外はreal_bで上書きする
+    #fake_c[:,:,center - d:center+d,center - d:center+d] = fake_c_raw[:,:,center - d:center+d,center - d:center+d]
 
 
+    #####################################################################
+    #Discriminatorを走らせる
+    #####################################################################
 
-    #tensor_plot2image(fake_c,'fakeC_1',iteration)
-    tensor_plot2image(fake_c_raw,'fakeC_Raw_1',iteration)
-    tensor_plot2image(real_c,'realC_1',iteration)
-    tensor_plot2image(real_b,'realb_1',iteration)
+    center = math.floor(image_size / 2)
+    d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
+    d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
-    #マスクをはりつけたもの
+    #fake_cはfake_c_rawにreal_bを埋めたもの
     fake_c = real_b.clone()
-    fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d] 
+    fake_c[:,:,center-d:center+d,center-d:center+d] = fake_c_raw[:,:,center-d:center+d,center-d:center+d]
+        
+    #GlobalDiscriminatorの起動
+    #厳密にfake_c_rawが　C(x,Mc)なのか　fake_cが C(x,Mc)なのかが若干不明(fake_cな気もする)
 
-    #loss_g = (loss_g1 + loss_g2) / 2 + loss_g_l2
-    loss_g = reconstruct_error
-    #loss_g.forward()
+    real_
 
-    loss_g.backward(retain_graph=True)
-    #loss_g1.backward(retain_graph=True)
-    #loss_g2.backward(retain_graph=True)
-    #loss_g3.backward()
-    optimizerG.step() # 動いてる
- #   print("===> Epoch[{}]({}/{}): Loss_D: {:.4f} Loss_G: {:.4f}".format(
-#        epoch, iteration, len(training_data_loader), loss_d.item(), loss_g.item()))
+    pred_realG = 
 
-    print("===> Epoch[{}]({}/{}):  Loss_G: {:.4f}".format(
-       epoch, iteration, len(training_data_loader),  loss_g.item()))
-    if(iteration == 1):
-      tensor_plot2image(fake_c_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
-      tensor_plot2image(fake_c,'fakeC_Last_Epoch_{}'.format(epoch),iteration)
-      #vutils.save_image(fake_c_raw.detach(), '{}\\fake_C_Raw{:03d}.png'.format(os.getcwd() + '\\checkpoint_output', epoch,normalize=True, nrow=8))
+    fake_c_4d = torch.cat(fake_c_raw,mask_channel_float)
 
-  #Discriminatorの学習タスク
-  
+    pred_fakeG = netD_Global.forward(fake_c_4d) #pred_falke=D(C(x,Mc),Mc)
+    loss_d_fakeG = criterionGAN(pred_fakeG, False) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    loss_d = loss_d_fakeG()
+    loss_d.backward()
+    
 
-  #1epoch毎に出力してみる
+ 
+    optimizerD_Global.step()
+
+
+    print("===> Epoch[{}]({}/{}):  Loss_D_Global: {:.4f}".format(
+       epoch, iteration, len(training_data_loader),  loss_d_fakeG.item()))
+ 
   
 
 #12/11テストタスクを全部↑に引っ越す
@@ -278,13 +259,13 @@ def checkpoint(epoch):
     os.mkdir("checkpoint")
   if not os.path.exists(os.path.join("checkpoint", opt.dataset)):
     os.mkdir(os.path.join("checkpoint", opt.dataset))
-  net_g_model_out_path = "checkpoint/{}/netG_model_epoch_{}.pth".format(opt.dataset, epoch)
+  #net_g_model_out_path = "checkpoint/{}/netG_model_epoch_{}.pth".format(opt.dataset, epoch)
   net_dg_model_out_path = "checkpoint/{}/netDg_model_epoch_{}.pth".format(opt.dataset, epoch)
-  net_dl_model_out_path = "checkpoint/{}/netDl_model_epoch_{}.pth".format(opt.dataset, epoch)
-  net_de_model_out_path = "checkpoint/{}/netDe_model_epoch_{}.pth".format(opt.dataset, epoch)
-  torch.save(netG, net_g_model_out_path)
+  #net_dl_model_out_path = "checkpoint/{}/netDl_model_epoch_{}.pth".format(opt.dataset, epoch)
+  #net_de_model_out_path = "checkpoint/{}/netDe_model_epoch_{}.pth".format(opt.dataset, epoch)
+ # torch.save(netG, net_g_model_out_path)
   torch.save(netD_Global, net_dg_model_out_path)
-  torch.save(netD_Local, net_dl_model_out_path)
+#  torch.save(netD_Local, net_dl_model_out_path)
 #  torch.save(netD_Edge, net_d_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
