@@ -450,7 +450,10 @@ def checkpoint_total(epoch):
 disc_only_epoch = 10
 total_epoch = 50
 
-
+for epoch in range(1, disc_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch)
+  checkpoint(epoch)
 
 
 for epoch in range(1, total_epoch + 1):
@@ -460,10 +463,7 @@ for epoch in range(1, total_epoch + 1):
   checkpoint_total(epoch)
 
 
-for epoch in range(1, disc_only_epoch + 1):
-#discriminatorのtrain
-  train(epoch)
-  checkpoint(epoch)
+
 
 
 
