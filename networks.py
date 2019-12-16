@@ -222,7 +222,7 @@ class Local_Discriminator(nn.Module):
 
       #FullConvolution層
       model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
-
+      model += [nn.Sigmoid()]
       self.model = nn.Sequential(*model)
 
   def forward(self, input):

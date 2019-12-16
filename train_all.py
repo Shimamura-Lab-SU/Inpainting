@@ -129,34 +129,41 @@ d2 = math.floor(Local_Window / 2)
 ##白、黒チャネルの定義
 black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
 white_channel_boolen = torch.full((opt.batchSize,1,hall_size,hall_size), True,dtype=bool)
+white_channel_boolen_128 = torch.full((opt.batchSize,1,hall_size*2,hall_size*2), True,dtype=bool)
 black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
 white_channel_float = torch.full((opt.batchSize,1,hall_size,hall_size), True)
+white_channel_float_128 = torch.full((opt.batchSize,1,hall_size*2,hall_size*2), True)
 ##Mc(inputMask)の定義
 mask_channel_float = black_channel_float.clone() #mask_channel=Mcに相当,Gが穴を開けた位置(必ず中央)
 mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_float
 mask_channel_boolen = black_channel_boolen.clone()
 mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
 ##Md(RandomMask)の定義
-random_mask_float = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
-random_mask_boolen = black_channel_boolen.clone()
+random_mask_float_64 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
+random_mask_boolen_64 = black_channel_boolen.clone()
+random_mask_float_128 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
+random_mask_boolen_128 = black_channel_boolen.clone()
 
 false_label_tensor = Variable(torch.LongTensor())
-false_label_tensor  = torch.zeros(opt.batchSize,1024,1,1)
+false_label_tensor  = torch.zeros(opt.batchSize,2048,1,1)
 true_label_tensor = Variable(torch.LongTensor())
-true_label_tensor  = torch.ones(opt.batchSize,1024,1,1)
+true_label_tensor  = torch.ones(opt.batchSize,2048,1,1)
 
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
-padding = 16 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか
+padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
 
 #マスク、ラベルテンソルのgpuセット
 if opt.cuda:
   mask_channel_boolen = mask_channel_boolen.cuda()
   mask_channel_float = mask_channel_float.cuda()
-  random_mask_boolen = mask_channel_boolen.cuda()
-  random_mask_float = mask_channel_float.cuda()
+  random_mask_boolen_64 = mask_channel_boolen.cuda()
+  random_mask_float_64 = mask_channel_float.cuda()
+  random_mask_boolen_128 = mask_channel_boolen.cuda()
+  random_mask_float_128 = mask_channel_float.cuda()
   true_label_tensor = true_label_tensor.cuda()
   false_label_tensor = false_label_tensor.cuda()
+  white_channel_float_128 = white_channel_float_128.cuda()
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 dirname = 'testing_output_disc\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
@@ -179,8 +186,12 @@ def train(epoch):
     Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
     Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
     #Mdを↑の位置に当てはめる
-    random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_float
-    random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_boolen
+    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
+    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_float
+    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_boolen
+    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float_128
+    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen_128
 
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
@@ -214,38 +225,53 @@ def train(epoch):
    
 
     #####################################################################
-    #Discriminatorを走らせる
+    #Global,LocalDiscriminatorを走らせる
     #####################################################################
 
     #center..中央の定数
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-    d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     fake_b_image = real_a_image.clone()
     fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
-        
+
+    fake_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
+    real_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
+    #128*128の窓を作成 (あとで裏に回れるようにする)
+    fake_c_image = fake_b_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+    real_c_image = real_a_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+
     #GlobalDiscriminatorの起動
 
     #真画像とマスクの結合..4次元に
-    real_a_image_4d = torch.cat((real_a_image,random_mask_float),1)
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
+    real_c_image_4d = torch.cat((real_c_image,white_channel_float_128),1) #LocalにもMdをかけるのか？←実質同じのため一旦All1のフィルタを入れる
 
     #pred_realは正しい画像を入力としたときの尤度テンソル(batchSize*1024*1*1)
-    pred_realG =  netD_Global.forward(real_a_image_4d)
+    pred_realD_Global =  netD_Global.forward(real_a_image_4d)
+    pred_realD_Local  =  netD_Local.forward(real_c_image_4d)
 
     #偽画像とマスクの結合..4次元に  
     fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
+    fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
 
     #pred_fakeは偽生成画像を入力としたときの尤度テンソル
-    pred_fakeG = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+    pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+    pred_fakeD_Local = netD_Local.forward(fake_c_image_4d) #pred_falke=D(C(x,Mc),Mc)
 
-    #loss_d = loss_d_realG + loss_d_fakeG
-    loss_d_realG = criterionBCE(pred_realG, true_label_tensor)
-    loss_d_fakeG = criterionBCE(pred_fakeG, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
+    pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+
+    #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
+    loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
+    loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
+    #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #2つのロスの足し合わせ
-    loss_d =  loss_d_realG + loss_d_fakeG 
+    loss_d =  loss_d_realD + loss_d_fakeD 
     #backward
     loss_d.backward()
     
@@ -264,9 +290,13 @@ def total_train(epoch):
     Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
     Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
     #Mdを↑の位置に当てはめる
-    random_mask_float[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_float
-    random_mask_boolen[:,:,Mdpos_x:Mdpos_x+hall_size,Mdpos_y:Mdpos_y+hall_size] = white_channel_boolen
-
+    #Mdを↑の位置に当てはめる
+    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
+    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+hall_size+d,Mdpos_y+d:Mdpos_y+d] = white_channel_float
+    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+hall_size+d,Mdpos_y+d:Mdpos_y+d] = white_channel_boolen
+    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float
+    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
@@ -317,7 +347,7 @@ def total_train(epoch):
     #center..中央の定数
     center = math.floor(image_size / 2)
     d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-    d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     fake_b_image = real_a_image.clone()
@@ -326,26 +356,26 @@ def total_train(epoch):
     #GlobalDiscriminatorの起動
 
     #真画像とマスクの結合..4次元に
-    real_a_image_4d = torch.cat((real_a_image,random_mask_float),1)
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
 
     #pred_realは正しい画像を入力としたときの尤度テンソル(batchSize*1024*1*1)
-    pred_realG =  netD_Global.forward(real_a_image_4d)
+    pred_realD_Global =  netD_Global.forward(real_a_image_4d)
 
     #偽画像とマスクの結合..4次元に  
     fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
 
     #pred_fakeは偽生成画像を入力としたときの尤度テンソル
-    pred_fakeG = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+    pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
 
-    #loss_d = loss_d_realG + loss_d_fakeG
-    loss_d_realG = criterionBCE(pred_realG, true_label_tensor)
-    loss_d_fakeG = criterionBCE(pred_fakeG, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
+    loss_d_realG_Global = criterionBCE(pred_realD_Global, true_label_tensor)
+    loss_d_fakeG_Local = criterionBCE(pred_fakeD_Global, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 		
 		#
 		
 
     #2つのロスの足し合わせ
-    loss_d = loss_d_realG + loss_d_fakeG 
+    loss_d = loss_d_realG_Global + loss_d_fakeG_Local 
     #backward
     loss_d.backward()
     
@@ -405,6 +435,7 @@ def checkpoint_total(epoch):
 disc_only_epoch = 10
 total_epoch = 50
 
+
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   train(epoch)
@@ -416,6 +447,7 @@ for epoch in range(1, total_epoch + 1):
   total_train(epoch)
 	
   checkpoint_total(epoch)
+
 
 
 
