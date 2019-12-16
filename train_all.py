@@ -131,24 +131,13 @@ if opt.cuda:
 real_a_image = Variable(real_a_image)
 
 
-##白、黒チャネルの定義
-black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
-white_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size), True,dtype=bool)
-black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
-white_channel_float = torch.full((opt.batchSize,1,image_size,image_size), True)
 white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
 
 
 ##Mc(inputMask)の定義
-mask_channel_float = black_channel_float.clone() #mask_channel=Mcに相当,Gが穴を開けた位置(必ず中央)
 mask_channel_float = Set_Masks(image_size,center,center,hall_size)
-mask_channel_boolen = black_channel_boolen.clone()
 mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
-random_mask_float_64 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
-random_mask_boolen_64 = black_channel_boolen.clone()
-random_mask_float_128 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
-random_mask_boolen_128 = black_channel_boolen.clone()
 
 false_label_tensor = Variable(torch.LongTensor())
 false_label_tensor  = torch.zeros(opt.batchSize,2048,1,1)
@@ -162,10 +151,10 @@ seed = random.seed(1297)
 if opt.cuda:
   mask_channel_boolen = mask_channel_boolen.cuda()
   mask_channel_float = mask_channel_float.cuda()
-  random_mask_boolen_64 = mask_channel_boolen.cuda()
-  random_mask_float_64 = mask_channel_float.cuda()
-  random_mask_boolen_128 = mask_channel_boolen.cuda()
-  random_mask_float_128 = mask_channel_float.cuda()
+#  random_mask_boolen_64 = mask_channel_boolen.cuda()
+#  random_mask_float_64 = mask_channel_float.cuda()
+#  random_mask_boolen_128 = mask_channel_boolen.cuda()
+#  random_mask_float_128 = mask_channel_float.cuda()
   true_label_tensor = true_label_tensor.cuda()
   false_label_tensor = false_label_tensor.cuda()
   white_channel_float_128 = white_channel_float_128.cuda()
