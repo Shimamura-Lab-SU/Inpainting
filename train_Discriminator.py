@@ -12,7 +12,7 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from   torch.autograd         import Variable
 from   torch.utils.data       import DataLoader
-from   networks               import define_G, define_D, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local
+from   networks               import define_G,  GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 from   util                   import save_img
