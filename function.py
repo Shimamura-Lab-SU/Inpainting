@@ -10,15 +10,16 @@ def Set_Md(_seed):
   return x,y
 
 #Mdの場所に応じてマスクを作成する
-def Set_Masks(_mask,_Mdx,_Mdy,_size,_dtype=torch.float32):
-  from train_all import padding,d,d2,white_channel_float,white_channel_boolen
-  d = math.floor(_size / 2)
-  mask = _mask
-  if _dtype == torch.float32:
-    mask[:,:,_Mdx-d:_Mdx+d,_Mdy-d:_Mdy+d] = white_channel_float[:,:,:_size,:_size]
-  elif _dtype == bool:
-    mask[:,:,_Mdx-d:_Mdx+d,_Mdy-d:_Mdy+d] = white_channel_boolen[:,:,:_size,:_size]
+def Set_Masks(_masksize,_Mdx,_Mdy,_hallsize,_dtype=torch.float32):
 
-  return mask
+  from train_all import opt
+  #from train_all import padding,d,d2,white_channel_float,white_channel_boolen
+  d = math.floor(_hallsize / 2)
+  #ALL0と1のテンソルを作成する
+  black_mask = torch.full((opt.batchSize,1,_masksize,_masksize),0,dtype=_dtype)
+  white_mask = torch.full((opt.batchSize,1,_masksize,_masksize),1,dtype=_dtype)
+  black_mask[:,:,_Mdx-d:_Mdx+d,_Mdy-d:_Mdy+d] = white_mask[:,:,:_hallsize,:_hallsize]
+
+  return black_mask
 
 

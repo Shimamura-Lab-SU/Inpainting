@@ -141,9 +141,9 @@ white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
 
 ##Mc(inputMask)の定義
 mask_channel_float = black_channel_float.clone() #mask_channel=Mcに相当,Gが穴を開けた位置(必ず中央)
-mask_channel_float = Set_Masks(mask_channel_float,center,center,hall_size)
+mask_channel_float = Set_Masks(image_size,center,center,hall_size)
 mask_channel_boolen = black_channel_boolen.clone()
-mask_channel_boolen = Set_Masks(mask_channel_boolen,center,center,hall_size,bool)
+mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 random_mask_float_64 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
 random_mask_boolen_64 = black_channel_boolen.clone()
@@ -191,10 +191,15 @@ def train(epoch):
     Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
     
-    random_mask_float_64 = Set_Masks(random_mask_float_64,Mdpos_x,Mdpos_y,hall_size,torch.float32)
-    random_mask_boolen_64 = Set_Masks(random_mask_boolen_64,Mdpos_x,Mdpos_y,hall_size,bool)
-    random_mask_float_128 = Set_Masks(random_mask_float_128,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
-    random_mask_boolen_128 = Set_Masks(random_mask_boolen_128,Mdpos_x,Mdpos_y,Local_Window,bool)
+    random_mask_float_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,torch.float32)
+    random_mask_boolen_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,bool)
+    random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
+    random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool)
+    if opt.cuda:
+      random_mask_float_64 =  random_mask_float_64.cuda()
+      random_mask_boolen_64 = random_mask_boolen_64.cuda()
+      random_mask_float_128 = random_mask_float_128.cuda()
+      random_mask_boolen_128 = random_mask_boolen_128.cuda()  
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
@@ -294,10 +299,15 @@ def total_train(epoch):
     Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
     
-    random_mask_float_64 = SetMasks(self,Mdpos_x,Mdpos_y,hall_size,torch.float32)
-    random_mask_boolen_64 = SetMasks(self,Mdpos_x,Mdpos_y,hall_size,bool)
-    random_mask_float_128 = SetMasks(self,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
-    random_mask_boolen_128 = SetMasks(self,Mdpos_x,Mdpos_y,Local_Window,bool)
+    random_mask_float_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,torch.float32)
+    random_mask_boolen_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,bool)
+    random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
+    random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool)
+    if opt.cuda:
+      random_mask_float_64 =  random_mask_float_64.cuda()
+      random_mask_boolen_64 = random_mask_boolen_64.cuda()
+      random_mask_float_128 = random_mask_float_128.cuda()
+      random_mask_boolen_128 = random_mask_boolen_128.cuda()  
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
