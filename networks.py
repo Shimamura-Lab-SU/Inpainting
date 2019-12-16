@@ -39,63 +39,19 @@ def define_G(input_nc, output_nc, ngf, norm='batch', use_dropout=False, gpu_ids=
   return netG
 
 
-def define_D(input_nc, ndf, norm='batch', use_sigmoid=False, gpu_ids=[]):
-  netD = None
-  use_gpu = len(gpu_ids) > 0
-  norm_layer = get_norm_layer(norm_type=norm)
-
-  if use_gpu:
-    assert(torch.cuda.is_available())
-
-  netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids)
-
-  if use_gpu:
-    netD.cuda()
-  netD.apply(weights_init)
-  return netD
-#netD_Global = define_D_Global(hogehoge)
-#netD_Local  = define_D_Local(hogehoge)
-#netD_Edge   = define_D_Edge(hogehoge)
-
 #いる #いる　#いる #いらない #いる
-def define_D_Global(input_nc,output_nc, ndf,  gpu_ids=[]):
-  netD_Global = None
-  use_gpu = len(gpu_ids) > 0
-
-  if use_gpu:
-    assert(torch.cuda.is_available())
-
+def define_D_Global(input_nc,output_nc, ndf,  gpu_ids=[0]):
   netD_Global = Global_Discriminator(input_nc, output_nc,  ndf,gpu_ids=gpu_ids)
-
-  if use_gpu:
-    netD_Global.cuda()
   netD_Global.apply(weights_init)
   return netD_Global
 
-def define_D_Local(input_nc, output_nc,ndf, gpu_ids=[]):
-  netD_Local = None
-  use_gpu = len(gpu_ids) > 0
-  if use_gpu:
-    assert(torch.cuda.is_available())
-
+def define_D_Local(input_nc, output_nc,ndf, gpu_ids=[0]):
   netD_Local = Local_Discriminator(input_nc, output_nc, ndf, gpu_ids=gpu_ids)
-
-  if use_gpu:
-    netD_Local.cuda()
   netD_Local.apply(weights_init)
   return netD_Local
 
-def define_D_Edge(input_nc, output_nc, ndf, gpu_ids=[]):
-  netD_Edge = None
-  use_gpu = len(gpu_ids) > 0
-
-  if use_gpu:
-    assert(torch.cuda.is_available())
-
+def define_D_Edge(input_nc, output_nc, ndf, gpu_ids=[0]):
   netD_Edge = Edge_Discriminator(input_nc, output_nc, ndf,  gpu_ids=gpu_ids)
-
-  if use_gpu:
-    netD_Edge.cuda()
   netD_Edge.apply(weights_init)
   return netD_Edge
 
