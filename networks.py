@@ -23,18 +23,8 @@ def get_norm_layer(norm_type):
   return norm_layer
 
 
-def define_G(input_nc, output_nc, ngf, norm='batch', use_dropout=False, gpu_ids=[]):
-  netG = None
-  use_gpu = len(gpu_ids) > 0
-  norm_layer = get_norm_layer(norm_type=norm)
-
-  if use_gpu:
-    assert(torch.cuda.is_available())
-
+def define_G(input_nc, output_nc, ngf, norm='batch', use_dropout=False, gpu_ids=[0]):
   netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
-
-  if len(gpu_ids) > 0:
-    netG.cuda()
   netG.apply(weights_init)
   return netG
 
