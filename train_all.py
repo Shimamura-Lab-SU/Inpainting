@@ -16,6 +16,7 @@ from   networks               import define_G, GANLoss, print_network, define_D_
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 from   util                   import save_img
+from   function import Set_Md, Set_Masks
 
 import random
 import time
@@ -40,11 +41,19 @@ parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in o
 parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
 
 opt = parser.parse_args()
-#自家製のハイパーパラメータ
 Output_Each_Epoch = True #エポックの終了時に訓練結果を画像として出力するか否か
+
+#画像サイズまわりはここで整合性をとりながら入力すること
 hall_size = 64 # 穴の大きさ(pic)
 Local_Window = 128 #ローカルDiscが参照する範囲の大きさ(pic)
 image_size = 256 #入力画像全体のサイズ
+#mask_channelは1*256*256の白黒マスク
+center = 128#奇数の場合は切り捨てる 
+d = 32 #生成窓の半分の大きさ
+d2 =  64#LocalDiscriminator窓の半分の大きさ
+padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
+
+
 
 print(opt)
 
@@ -121,23 +130,20 @@ if opt.cuda:
 
 real_a_image = Variable(real_a_image)
 
-#mask_channelは1*256*256の白黒マスク
-center = math.floor(image_size / 2)
-d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-d2 = math.floor(Local_Window / 2) 
 
 ##白、黒チャネルの定義
 black_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size),False,dtype=bool)
-white_channel_boolen = torch.full((opt.batchSize,1,hall_size,hall_size), True,dtype=bool)
-white_channel_boolen_128 = torch.full((opt.batchSize,1,hall_size*2,hall_size*2), True,dtype=bool)
+white_channel_boolen = torch.full((opt.batchSize,1,image_size,image_size), True,dtype=bool)
 black_channel_float = torch.full((opt.batchSize,1,image_size,image_size),False)
-white_channel_float = torch.full((opt.batchSize,1,hall_size,hall_size), True)
-white_channel_float_128 = torch.full((opt.batchSize,1,hall_size*2,hall_size*2), True)
+white_channel_float = torch.full((opt.batchSize,1,image_size,image_size), True)
+white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
+
+
 ##Mc(inputMask)の定義
 mask_channel_float = black_channel_float.clone() #mask_channel=Mcに相当,Gが穴を開けた位置(必ず中央)
-mask_channel_float[:,:,center - d:center+d,center - d:center+d] = white_channel_float
+mask_channel_float = Set_Masks(mask_channel_float,center,center,hall_size)
 mask_channel_boolen = black_channel_boolen.clone()
-mask_channel_boolen[:,:,center - d:center+d,center - d:center+d] = white_channel_boolen
+mask_channel_boolen = Set_Masks(mask_channel_boolen,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 random_mask_float_64 = black_channel_float.clone() #random_channel=Mdに相当,毎iterationランダムな位置に穴を空ける
 random_mask_boolen_64 = black_channel_boolen.clone()
@@ -151,7 +157,6 @@ true_label_tensor  = torch.ones(opt.batchSize,2048,1,1)
 
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
-padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
 
 #マスク、ラベルテンソルのgpuセット
 if opt.cuda:
@@ -183,16 +188,13 @@ def train(epoch):
   for iteration, batch in enumerate(training_data_loader, 1):
  
     #Mdの位置
-    Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
-    Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
+    Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
-    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
-    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_float
-    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_boolen
-    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float_128
-    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen_128
-
+    
+    random_mask_float_64 = Set_Masks(random_mask_float_64,Mdpos_x,Mdpos_y,hall_size,torch.float32)
+    random_mask_boolen_64 = Set_Masks(random_mask_boolen_64,Mdpos_x,Mdpos_y,hall_size,bool)
+    random_mask_float_128 = Set_Masks(random_mask_float_128,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
+    random_mask_boolen_128 = Set_Masks(random_mask_boolen_128,Mdpos_x,Mdpos_y,Local_Window,bool)
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
@@ -283,20 +285,19 @@ def train(epoch):
     print("===> Epoch[{}]({}/{}):  Loss_D_Global: {:.4f}".format(
       epoch, iteration, len(training_data_loader),  loss_d.item()))
 
+
+
 def total_train(epoch):
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
     #Mdの位置
-    Mdpos_x = random.randint(0 + padding,image_size - hall_size - padding)
-    Mdpos_y = random.randint(0 + padding,image_size - hall_size - padding)
+    Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
-    #Mdを↑の位置に当てはめる
-    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-    d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
-    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_float
-    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_boolen
-    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float_128
-    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen_128
+    
+    random_mask_float_64 = SetMasks(self,Mdpos_x,Mdpos_y,hall_size,torch.float32)
+    random_mask_boolen_64 = SetMasks(self,Mdpos_x,Mdpos_y,hall_size,bool)
+    random_mask_float_128 = SetMasks(self,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
+    random_mask_boolen_128 = SetMasks(self,Mdpos_x,Mdpos_y,Local_Window,bool)
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
