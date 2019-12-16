@@ -293,10 +293,10 @@ def total_train(epoch):
     #Mdを↑の位置に当てはめる
     d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
-    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+hall_size+d,Mdpos_y+d:Mdpos_y+d] = white_channel_float
-    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+hall_size+d,Mdpos_y+d:Mdpos_y+d] = white_channel_boolen
-    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float
-    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen
+    random_mask_float_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_float
+    random_mask_boolen_64[:,:,Mdpos_x-d:Mdpos_x+d,Mdpos_y-d:Mdpos_y+d] = white_channel_boolen
+    random_mask_float_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_float_128
+    random_mask_boolen_128[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2] = white_channel_boolen_128
 
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     
@@ -352,30 +352,45 @@ def total_train(epoch):
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     fake_b_image = real_a_image.clone()
     fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
-        
+    
+
+    fake_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
+    real_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
+    #128*128の窓を作成 (あとで裏に回れるようにする)
+    fake_c_image = fake_b_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+    real_c_image = real_a_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+
     #GlobalDiscriminatorの起動
-
-    #真画像とマスクの結合..4次元に
-    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
-
-    #pred_realは正しい画像を入力としたときの尤度テンソル(batchSize*1024*1*1)
-    pred_realD_Global =  netD_Global.forward(real_a_image_4d)
 
     #偽画像とマスクの結合..4次元に  
     fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
+    fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
+
+    #真画像とマスクの結合..4次元に
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
+    real_c_image_4d = torch.cat((real_c_image,white_channel_float_128),1) #LocalにもMdをかけるのか？←実質同じのため一旦All1のフィルタを入れる
+    #pred_realは正しい画像を入力としたときの尤度テンソル(batchSize*1024*1*1)
+    pred_realD_Global =  netD_Global.forward(real_a_image_4d)
+    pred_realD_Local  =  netD_Local.forward(real_c_image_4d)
+    pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+    pred_fakeD_Local = netD_Local.forward(fake_c_image_4d) #pred_falke=D(C(x,Mc),Mc)
+
+    pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
+    pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
 
     #pred_fakeは偽生成画像を入力としたときの尤度テンソル
     pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
 
-    #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
-    loss_d_realG_Global = criterionBCE(pred_realD_Global, true_label_tensor)
-    loss_d_fakeG_Local = criterionBCE(pred_fakeD_Global, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-		
+
+    loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
+    loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+    #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
+    #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 		#
 		
 
     #2つのロスの足し合わせ
-    loss_d = loss_d_realG_Global + loss_d_fakeG_Local 
+    loss_d =  loss_d_realD + loss_d_fakeD 
     #backward
     loss_d.backward()
     
@@ -436,10 +451,6 @@ disc_only_epoch = 10
 total_epoch = 50
 
 
-for epoch in range(1, disc_only_epoch + 1):
-#discriminatorのtrain
-  train(epoch)
-  checkpoint(epoch)
 
 
 for epoch in range(1, total_epoch + 1):
@@ -447,6 +458,12 @@ for epoch in range(1, total_epoch + 1):
   total_train(epoch)
 	
   checkpoint_total(epoch)
+
+
+for epoch in range(1, disc_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch)
+  checkpoint(epoch)
 
 
 
