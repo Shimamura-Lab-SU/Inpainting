@@ -214,7 +214,7 @@ def train(epoch):
 
     #center..中央の定数
     center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
+    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの

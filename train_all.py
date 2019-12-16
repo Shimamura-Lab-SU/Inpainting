@@ -81,6 +81,7 @@ netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
 netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 
@@ -218,7 +219,7 @@ def train(epoch):
 
     #center..中央の定数
     center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
+    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
@@ -296,6 +297,12 @@ def total_train(epoch):
     #学習済みジェネレータで偽画像を作成
     fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
 		#reconstructError
+    mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
+
+    fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
+    real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
+
+
     reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked)# 生成画像とオリジナルの差
     loss_g = reconstruct_error
 
@@ -309,7 +316,7 @@ def total_train(epoch):
 
     #center..中央の定数
     center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
+    d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
     d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
@@ -349,6 +356,9 @@ def total_train(epoch):
 
     print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}  Loss_D_Global: {:.4f}".format(
         epoch, iteration, len(training_data_loader), loss_g.item(), loss_d.item()))
+    if(iteration == 1):
+      tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration)
+      tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration)
 
 
 #12/11テストタスクを全部↑に引っ越す
@@ -392,7 +402,7 @@ def checkpoint_total(epoch):
   torch.save(netD_Global, net_dg_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
-disc_only_epoch = 1
+disc_only_epoch = 10
 total_epoch = 50
 
 for epoch in range(1, disc_only_epoch + 1):
@@ -400,8 +410,12 @@ for epoch in range(1, disc_only_epoch + 1):
   train(epoch)
   checkpoint(epoch)
 
+
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  train_total(epoch)
+  total_train(epoch)
 	
   checkpoint_total(epoch)
+
+
+
