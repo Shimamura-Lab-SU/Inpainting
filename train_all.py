@@ -284,13 +284,13 @@ def train(epoch,mode=0):
 
 
       if flag_global: 
-        pred_realD_Global =  netD_Global.forward(real_a_image_4d)
+        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
         fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
-        pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forward(fake_b_image_4d.detach()) #pred_falke=D(C(x,Mc),Mc)
       if flag_local:
-        pred_realD_Local  =  netD_Local.forward(real_c_image_4d)
+        pred_realD_Local  =  netD_Local.forward(real_c_image_4d.detach())
         fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
-        pred_fakeD_Local = netD_Local.forward(fake_c_image_4d) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Local = netD_Local.forward(fake_c_image_4d.detach()) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇
@@ -367,6 +367,12 @@ total_epoch = 50
 
 #使用する既存のモデルがある場合はここでloadする
 
+for epoch in range(1, total_epoch + 1):
+#discriminatorのtrain
+  train(epoch,mode=2)#両方
+  checkpoint_total(epoch)
+
+
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   netG = torch.load("checkpoint/testing_modelG_25.pth")
@@ -374,10 +380,6 @@ for epoch in range(1, disc_only_epoch + 1):
   checkpoint(epoch)
 
 
-for epoch in range(1, total_epoch + 1):
-#discriminatorのtrain
-  train(epoch,mode=2)#両方
-  checkpoint_total(epoch)
 
 
 for epoch in range(1, gene_only_epoch + 1):
