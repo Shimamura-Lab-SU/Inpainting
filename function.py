@@ -9,6 +9,7 @@ def Set_Md(_seed):
   y = random.randint(0 + padding,image_size - hall_size - padding)
   return x,y
 
+
 #Mdの場所に応じてマスクを作成する
 def Set_Masks(_masksize,_Mdx,_Mdy,_hallsize,_dtype=torch.float32):
 

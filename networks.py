@@ -24,6 +24,7 @@ def get_norm_layer(norm_type):
 
 
 def define_G(input_nc, output_nc, ngf, norm='batch', use_dropout=False, gpu_ids=[0]):
+  norm_layer = get_norm_layer(norm_type=norm)
   netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
   netG.apply(weights_init)
   return netG
