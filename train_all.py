@@ -380,17 +380,11 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 25
+gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
+total_epoch = 50
 
 #使用する既存のモデルがある場合はここでloadする
-
-for epoch in range(1, gene_only_epoch + 1):
-#discriminatorのtrain
-  train(epoch,mode=0)#Discriminatorのみ
-  checkpoint(epoch)
-
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
@@ -398,12 +392,20 @@ for epoch in range(1, total_epoch + 1):
   checkpoint(epoch,2)
 
 
+
+
+for epoch in range(1, gene_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch,mode=0)#Discriminatorのみ
+  checkpoint(epoch)
+
+
+
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_25.pth")
   train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
-
 
 
 
