@@ -252,9 +252,9 @@ def train(epoch,mode=0):
       #12/17↑とは別にモデルを走らせる(時間がかかる)
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
-      optimizerD_Global.zero_grad()
-      optimizerD_Local.zero_grad()
-      optimizerD_Edge.zero_grad()
+      #optimizerD_Global.zero_grad()
+      #optimizerD_Local.zero_grad()
+      #optimizerD_Edge.zero_grad()
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
@@ -387,12 +387,14 @@ def checkpoint_total(epoch):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
+total_epoch = 50
 
 #使用する既存のモデルがある場合はここでloadする
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
+  netG = torch.load("checkpoint/testing_modelG_15.pth")
+  netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
   train(epoch,mode=2)#両方
   checkpoint(epoch,2)
 
@@ -401,6 +403,7 @@ for epoch in range(1, total_epoch + 1):
 
 for epoch in range(1, gene_only_epoch + 1):
 #discriminatorのtrain
+
   train(epoch,mode=0)#Discriminatorのみ
   checkpoint(epoch)
 
@@ -408,7 +411,7 @@ for epoch in range(1, gene_only_epoch + 1):
 
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
-  #netG = torch.load("checkpoint/testing_modelG_25.pth")
+  netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 

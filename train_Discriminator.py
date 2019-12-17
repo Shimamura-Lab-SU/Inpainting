@@ -37,7 +37,7 @@ parser.add_argument('--cuda', action='store_true', help='use cuda?')
 parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
 parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
-parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
+parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_15.pth', help='model file to use')
 
 opt = parser.parse_args()
 #自家製のハイパーパラメータ
