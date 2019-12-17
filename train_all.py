@@ -73,7 +73,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 300 #データセットの数
+max_dataset_num = 1500 #データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -380,11 +380,17 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 10
-disc_only_epoch = 10
-total_epoch = 50
+gene_only_epoch = 25
+disc_only_epoch = 0
+total_epoch = 0
 
 #使用する既存のモデルがある場合はここでloadする
+
+for epoch in range(1, gene_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch,mode=0)#Discriminatorのみ
+  checkpoint(epoch)
+
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
@@ -394,17 +400,13 @@ for epoch in range(1, total_epoch + 1):
 
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
-  netG = torch.load("checkpoint/testing_modelG_25.pth")
+  #netG = torch.load("checkpoint/testing_modelG_25.pth")
   train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
 
 
 
-for epoch in range(1, gene_only_epoch + 1):
-#discriminatorのtrain
-  train(epoch,mode=0)#Discriminatorのみ
-  checkpoint(epoch)
 
 
 
