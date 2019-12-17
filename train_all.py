@@ -314,9 +314,14 @@ def train(epoch,mode=0):
     #####################################################################
     if mode == 0 or mode == 2:
       print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_g.item()  ))
-      if(iteration == 1):
-        tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration,mode)
-        tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration,mode)
+      if(epoch % 10 == 9):
+        if(iteration <= 10):#10っ回に1回は10倍サンプルを吐く
+          tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
+          tensor_plot2image(fake_b_image,'fakeC_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
+      else:
+        if(iteration == 1):
+          tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration,mode)
+          tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration,mode)
 
     if mode == 1 or mode == 2:
       #後でGlobalとLocalで同時に出すことも検討
@@ -333,12 +338,12 @@ def tensor_plot2image(__input,name,iteration=1,mode=0):
     mode_dir = 'testing_output_total\\'
 
   dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
-  if(iteration == 1):
-    if not os.path.exists(dirname):
-      os.mkdir(dirname)
-    path = os.getcwd() + '\\' + dirname + '\\'
-    vutils.save_image(__input.detach(), path + name + '.jpg')
-    print('saved testing image')
+  
+  if not os.path.exists(dirname):
+    os.mkdir(dirname)
+  path = os.getcwd() + '\\' + dirname + '\\'
+  vutils.save_image(__input.detach(), path + name + '.jpg')
+  print('saved testing image')
 
 
 def checkpoint(epoch,mode=0):
@@ -382,7 +387,7 @@ def checkpoint_total(epoch):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 50
+total_epoch = 0
 
 #使用する既存のモデルがある場合はここでloadする
 
