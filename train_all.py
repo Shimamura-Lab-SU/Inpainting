@@ -73,7 +73,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500 #データセットの数
+max_dataset_num = 300 #データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -251,7 +251,6 @@ def train(epoch,mode=0):
     if mode==1 or mode==2:
       #12/17↑とは別にモデルを走らせる(時間がかかる)
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
-
       #12/17optimizerをzero_gradする
       optimizerD_Global.zero_grad()
       optimizerD_Local.zero_grad()
@@ -350,7 +349,7 @@ def checkpoint(epoch,mode=0):
   else :
     mode_dir = 'checkpoint_total' 
 
-  dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
+  dirname = mode_dir + '\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
   if not os.path.exists(dirname):
     os.mkdir(dirname)
   path = os.getcwd() + '\\' + dirname
@@ -390,7 +389,7 @@ total_epoch = 50
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
   train(epoch,mode=2)#両方
-  checkpoint_total(epoch)
+  checkpoint(epoch,2)
 
 
 for epoch in range(1, disc_only_epoch + 1):
