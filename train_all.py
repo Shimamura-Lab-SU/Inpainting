@@ -356,7 +356,7 @@ for epoch in range(1, disc_only_epoch + 1):
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  total(epoch,mode=2)
+  train(epoch,mode=2)
   checkpoint_total(epoch)
 
 
