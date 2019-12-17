@@ -345,18 +345,24 @@ def checkpoint_total(epoch):
   torch.save(netD_Local, net_dg_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
+gene_only_epoch
 disc_only_epoch = 10
 total_epoch = 50
 
+for epoch in range(1, gene_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch,mode=0)#Discriminatorのみ
+  checkpoint(epoch)
+
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
-  train(epoch,mode=0)
+  train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  train(epoch,mode=2)
+  train(epoch,mode=2)#両方
   checkpoint_total(epoch)
 
 
