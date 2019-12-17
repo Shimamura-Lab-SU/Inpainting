@@ -161,22 +161,7 @@ if opt.cuda:
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 
-#確認のための画像出力メソッド
-def tensor_plot2image(__input,name,iteration=1,mode=0):
-  if mode == 0:
-    mode_dir = 'testing_output\\'
-  elif mode == 1:
-    mode_dir = 'testing_output_disc\\'
-  else :
-    mode_dir = 'testing_output_total\\'
 
-  dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
-  if(iteration == 1):
-    if not os.path.exists(dirname):
-      os.mkdir(dirname)
-    path = os.getcwd() + '\\' + dirname + '\\'
-    vutils.save_image(__input.detach(), path + name + '.jpg')
-    print('saved testing image')
 
 
 
@@ -239,14 +224,13 @@ def train(epoch,mode=0):
 
     #マスクとrealbの結合
     real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
-    #12/17optimizerをzero_gradする
-    optimizerG.zero_grad()
-
-    fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
     #####################################################################
     #Generatorの学習を行う    
     ######################################################################   
     if mode==0 or mode==2:
+      #12/17optimizerをzero_gradする
+      optimizerG.zero_grad()
+      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
 		  #reconstructError
       mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
       fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
@@ -265,6 +249,9 @@ def train(epoch,mode=0):
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
     if mode==1 or mode==2:
+      #12/17↑とは別にモデルを走らせる(時間がかかる)
+      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
+
       #12/17optimizerをzero_gradする
       optimizerD_Global.zero_grad()
       optimizerD_Local.zero_grad()
@@ -337,14 +324,44 @@ def train(epoch,mode=0):
       print("===> Epoch[{}]({}/{}): loss_d: {:.4f}".format(epoch, iteration, len(training_data_loader),  loss_d.item()))
 
 
+#確認のための画像出力メソッド
+def tensor_plot2image(__input,name,iteration=1,mode=0):
+  if mode == 0:
+    mode_dir = 'testing_output\\'
+  elif mode == 1:
+    mode_dir = 'testing_output_disc\\'
+  else :
+    mode_dir = 'testing_output_total\\'
 
-def checkpoint(epoch):
-  if not os.path.exists("checkpoint"):
-    os.mkdir("checkpoint")
-  if not os.path.exists(os.path.join("checkpoint", opt.dataset)):
-    os.mkdir(os.path.join("checkpoint", opt.dataset))
-  net_dg_model_out_path = "checkpoint/{}/netDg_model_epoch_{}.pth".format(opt.dataset, epoch)
-  torch.save(netD_Global, net_dg_model_out_path)
+  dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
+  if(iteration == 1):
+    if not os.path.exists(dirname):
+      os.mkdir(dirname)
+    path = os.getcwd() + '\\' + dirname + '\\'
+    vutils.save_image(__input.detach(), path + name + '.jpg')
+    print('saved testing image')
+
+
+def checkpoint(epoch,mode=0):
+  if mode == 0:
+    mode_dir = 'checkpoint_gene'
+  elif mode == 1:
+    mode_dir = 'checkpoint_disc'
+  else :
+    mode_dir = 'checkpoint_total' 
+
+  dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
+  if not os.path.exists(dirname):
+    os.mkdir(dirname)
+  path = os.getcwd() + '\\' + dirname
+  if mode != 1:
+    net_g_model_out_path = "{}/netG_model_epoch_{}.pth".format(path,epoch)
+    torch.save(netG, net_g_model_out_path)
+  if mode != 0:
+    net_dg_model_out_path = "{}/netDg_model_epoch_{}.pth".format(path,epoch)
+    torch.save(netD_Global, net_dg_model_out_path)
+    net_dl_model_out_path = "{}/netDl_model_epoch_{}.pth".format(path,epoch)
+    torch.save(netD_Local, net_dl_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
 
@@ -360,6 +377,9 @@ def checkpoint_total(epoch):
   torch.save(netD_Global, net_dg_model_out_path)
   torch.save(netD_Local, net_dg_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
+
+
+
 
 gene_only_epoch = 10
 disc_only_epoch = 10
