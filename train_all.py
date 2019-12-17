@@ -190,7 +190,7 @@ def train(epoch,mode=0):
   flag_edge   = False
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
-     #####################################################################
+    #####################################################################
     #ランダムマスクの作成
     #####################################################################
     center = math.floor(image_size / 2)
@@ -239,6 +239,9 @@ def train(epoch,mode=0):
 
     #マスクとrealbの結合
     real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
+    #12/17optimizerをzero_gradする
+    optimizerG.zero_grad()
+
     fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
     #####################################################################
     #Generatorの学習を行う    
@@ -262,6 +265,10 @@ def train(epoch,mode=0):
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
     if mode==1 or mode==2:
+      #12/17optimizerをzero_gradする
+      optimizerD_Global.zero_grad()
+      optimizerD_Local.zero_grad()
+      optimizerD_Edge.zero_grad()
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
@@ -290,6 +297,7 @@ def train(epoch,mode=0):
       pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
       pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
 
+      #
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
