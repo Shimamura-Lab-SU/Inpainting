@@ -140,9 +140,9 @@ mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 
 false_label_tensor = Variable(torch.LongTensor())
-false_label_tensor  = torch.zeros(opt.batchSize,2048,1,1)
+false_label_tensor  = torch.zeros(opt.batchSize,1024,1,1)
 true_label_tensor = Variable(torch.LongTensor())
-true_label_tensor  = torch.ones(opt.batchSize,2048,1,1)
+true_label_tensor  = torch.ones(opt.batchSize,1024,1,1)
 
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
@@ -186,7 +186,7 @@ def train(epoch,mode=0):
   #1..OnlyDiscriminator
   #2..Both 
   flag_global = True
-  flag_local  = True
+  flag_local  = False
   flag_edge   = False
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
@@ -293,11 +293,19 @@ def train(epoch,mode=0):
         pred_fakeD_Local = netD_Local.forward(fake_c_image_4d) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
+      #〇〇
+      if (flag_global == True) and (flag_local == True):
+        pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
+        pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+      #〇×
+      if (flag_global == True) and (flag_local == False):
+        pred_realD = pred_realD_Global
+        pred_fakeD = pred_fakeD_Global
+      #×〇
+      if (flag_global == False) and (flag_local == True):
+        pred_realD = pred_realD_Global
+        pred_fakeD = pred_fakeD_Global
 
-      pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
-      pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
-
-      #
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
@@ -353,17 +361,15 @@ def checkpoint_total(epoch):
   torch.save(netD_Local, net_dg_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
-gene_only_epoch
+gene_only_epoch = 10
 disc_only_epoch = 10
 total_epoch = 50
 
-for epoch in range(1, gene_only_epoch + 1):
-#discriminatorのtrain
-  train(epoch,mode=0)#Discriminatorのみ
-  checkpoint(epoch)
+#使用する既存のモデルがある場合はここでloadする
 
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
+  netG = torch.load("checkpoint/testing_modelG_25.pth")
   train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
@@ -372,6 +378,15 @@ for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
   train(epoch,mode=2)#両方
   checkpoint_total(epoch)
+
+
+for epoch in range(1, gene_only_epoch + 1):
+#discriminatorのtrain
+  train(epoch,mode=0)#Discriminatorのみ
+  checkpoint(epoch)
+
+
+
 
 
 
