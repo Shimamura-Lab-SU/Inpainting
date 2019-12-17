@@ -229,7 +229,7 @@ def train(epoch,mode=0):
     ######################################################################   
     if mode==0 or mode==2:
       #12/17optimizerをzero_gradする
-      optimizerG.zero_grad()
+      #optimizerG.zero_grad()
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
 		  #reconstructError
       mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
