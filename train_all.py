@@ -331,8 +331,6 @@ def train(epoch,mode=0):
         loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
         loss_g += loss_d_fakeD
       
-
-      #loss_g = reconstruct_error 
       loss_g.backward()
 		  #Optimizerの更新
       optimizerG.step()
