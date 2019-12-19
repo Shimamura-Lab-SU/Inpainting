@@ -222,38 +222,20 @@ def train(epoch,mode=0):
     real_b_image = real_a_image.clone()    
     real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
-    #マスクとrealbの結合
-    real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
-    #####################################################################
-    #Generatorの学習を行う    
-    ######################################################################   
-    if mode==0 or mode==2:
-      #12/17optimizerをzero_gradする
-      #optimizerG.zero_grad()
-      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
-		  #reconstructError
-      mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
-      fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
-      real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
-      reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked)# 生成画像とオリジナルの差
-      loss_g = reconstruct_error
-      loss_g.backward(retain_graph=True)
-		  #Optimizerの更新
-      optimizerG.step()
-      #plotようにreal_aを貼り付けたもの
-      fake_b_image = real_a_image.clone()
-      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
 
 
     #####################################################################
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
     if mode==1 or mode==2:
+      #マスクとrealbの結合
+      real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
+
       #12/17↑とは別にモデルを走らせる(時間がかかる)
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
-      #optimizerD_Global.zero_grad()
-      #optimizerD_Local.zero_grad()
+      optimizerD_Global.zero_grad()
+      optimizerD_Local.zero_grad()
       #optimizerD_Edge.zero_grad()
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
       fake_b_image = real_a_image.clone()
@@ -308,6 +290,29 @@ def train(epoch,mode=0):
         optimizerD_Global.step()
       if flag_local: 
         optimizerD_Local.step()
+
+    #マスクとrealbの結合
+    real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
+    #####################################################################
+    #Generatorの学習を行う    
+    ######################################################################   
+    if mode==0 or mode==2:
+      #12/17optimizerをzero_gradする
+      optimizerG.zero_grad()
+      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
+		  #reconstructError
+      mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
+      fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
+      real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
+      reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked)# 生成画像とオリジナルの差
+      loss_g = reconstruct_error
+      loss_g.backward(retain_graph=True)
+		  #Optimizerの更新
+      optimizerG.step()
+      #plotようにreal_aを貼り付けたもの
+      fake_b_image = real_a_image.clone()
+      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
+
 
     #####################################################################
     #ログの作成、画像の出力
