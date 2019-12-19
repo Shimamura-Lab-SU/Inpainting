@@ -132,8 +132,6 @@ real_a_image = Variable(real_a_image)
 
 
 white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
-
-
 ##Mc(inputMask)の定義
 mask_channel_float = Set_Masks(image_size,center,center,hall_size)
 mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
@@ -222,22 +220,15 @@ def train(epoch,mode=0):
     real_b_image = real_a_image.clone()    
     real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
-
-
     #####################################################################
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
     if mode==1 or mode==2:
       #マスクとrealbの結合
       real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
-
-      #12/17↑とは別にモデルを走らせる(時間がかかる)
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
-      optimizerD_Global.zero_grad()
-      optimizerD_Local.zero_grad()
-      #optimizerD_Edge.zero_grad()
-    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+      #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
       fake_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
@@ -245,12 +236,9 @@ def train(epoch,mode=0):
       #128*128の窓を作成 (あとで裏に回れるようにする)
       fake_c_image = fake_b_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
       real_c_image = real_a_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
-
       #真画像とマスクの結合..4次元に
       real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
       real_c_image_4d = torch.cat((real_c_image,white_channel_float_128),1) #LocalにもMdをかけるのか？←実質同じのため一旦All1のフィルタを入れる
-
-
       if flag_global: 
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
         fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
@@ -277,8 +265,8 @@ def train(epoch,mode=0):
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-    #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
-    #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+      #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
+      #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #2つのロスの足し合わせ
       loss_d =  loss_d_realD + loss_d_fakeD 
@@ -296,22 +284,59 @@ def train(epoch,mode=0):
     #####################################################################
     #Generatorの学習を行う    
     ######################################################################   
+
+
     if mode==0 or mode==2:
       #12/17optimizerをzero_gradする
-      optimizerG.zero_grad()
+      #optimizerG.zero_grad()
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
+      fake_b_image = real_a_image.clone()
+      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
+
+      if mode == 2:
+        if flag_global: 
+          fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
+          pred_fakeD_Global = netD_Global.forward(fake_b_image_4d) #pred_falke=D(C(x,Mc),Mc)
+        if flag_local:
+          fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
+          pred_fakeD_Local = netD_Local.forward(fake_c_image_4d) #pred_falke=D(C(x,Mc),Mc)
+
+        #pred_fakeは偽生成画像を入力としたときの尤度テンソル
+        #〇〇
+        if (flag_global == True) and (flag_local == True):
+          pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
+          pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+        #〇×
+        if (flag_global == True) and (flag_local == False):
+          pred_realD = pred_realD_Global
+          pred_fakeD = pred_fakeD_Global
+        #×〇
+        if (flag_global == False) and (flag_local == True):
+          pred_realD = pred_realD_Global
+          pred_fakeD = pred_fakeD_Global
+
+
 		  #reconstructError
       mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
       fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) 
       real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
       reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked)# 生成画像とオリジナルの差
+      #fake_D_predを用いたエラー
       loss_g = reconstruct_error
-      loss_g.backward(retain_graph=True)
+      if mode == 2:
+        loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+        loss_g += loss_d_fakeD
+      
+
+      #loss_g = reconstruct_error 
+      loss_g.backward()
 		  #Optimizerの更新
       optimizerG.step()
       #plotようにreal_aを貼り付けたもの
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
+
+
 
 
     #####################################################################
@@ -398,10 +423,10 @@ total_epoch = 50
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  netG = torch.load("checkpoint/testing_modelG_15.pth")
-  netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
-  train(epoch,mode=2)#両方
-  checkpoint(epoch,2)
+  #netG = torch.load("checkpoint/testing_modelG_15.pth")
+  #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
+  train(epoch,mode=0)#両方
+  checkpoint(epoch,0)
 
 
 
