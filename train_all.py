@@ -5,6 +5,8 @@ from math import log10
 import math
 import cv2
 from copy import copy
+import csv
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -73,7 +75,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500 #データセットの数
+max_dataset_num = 150 #データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -165,6 +167,8 @@ start_time = datetime.datetime.now()
 
 
 def train(epoch,mode=0):
+  #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
+  loss_plot_array = np.empty((int(max_dataset_num / opt.batchSize),4))
   #0..OnlyGenerator
   #1..OnlyDiscriminator
   #2..Both 
@@ -336,6 +340,10 @@ def train(epoch,mode=0):
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
 
+      loss_plot_array[iteration-1][0] = epoch
+      loss_plot_array[iteration-1][1] = iteration
+      loss_plot_array[iteration-1][2] = loss_g
+      loss_plot_array[iteration-1][3] = loss_d
 
 
 
@@ -356,6 +364,21 @@ def train(epoch,mode=0):
     if mode == 1 or mode == 2:
       #後でGlobalとLocalで同時に出すことも検討
       print("===> Epoch[{}]({}/{}): loss_d: {:.4f}".format(epoch, iteration, len(training_data_loader),  loss_d.item()))
+    if iteration == len(training_data_loader):
+      if mode == 0:
+        mode_dir = 'loss_output_gene\\'
+      elif mode == 1:
+        mode_dir = 'loss_output_disc\\'
+      else :
+        mode_dir = 'loss_output_total\\'
+      dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
+
+      if not os.path.exists(dirname):
+        os.mkdir(dirname)
+      path = os.getcwd() + '\\' + dirname + '\\'
+      with open(path + 'loss_log.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerows(loss_plot_array)
 
 
 #確認のための画像出力メソッド
@@ -366,6 +389,7 @@ def tensor_plot2image(__input,name,iteration=1,mode=0):
     mode_dir = 'testing_output_disc\\'
   else :
     mode_dir = 'testing_output_total\\'
+
 
   dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
   
@@ -423,10 +447,10 @@ total_epoch = 50
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  #netG = torch.load("checkpoint/testing_modelG_15.pth")
-  #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
-  train(epoch,mode=0)#両方
-  checkpoint(epoch,0)
+  netG = torch.load("checkpoint/testing_modelG_15.pth")
+  netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
+  train(epoch,mode=2)#両方
+  checkpoint(epoch,2)
 
 
 
