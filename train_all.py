@@ -14,11 +14,13 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from   torch.autograd         import Variable
 from   torch.utils.data       import DataLoader
-from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local
+from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local,define_Concat
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 from   util                   import save_img
 from   function import Set_Md, Set_Masks
+
+
 
 import random
 import time
@@ -75,7 +77,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 150 #データセットの数
+max_dataset_num = 1500 #データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -88,14 +90,16 @@ print('===> Building model')
 
 #先ず学習済みのGeneratorを読み込んで入れる
 #netG = torch.load(opt.G_model)
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-
+netG = torch.load("checkpoint/testing_modelG_15.pth")
+netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
+net_Concat = define_Concat(2048,1,[0])
 
 criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
@@ -122,6 +126,7 @@ if opt.cuda:
   netD_Local  = netD_Local.cuda()
   netD_Edge   = netD_Edge.cuda()
   netG = netG.cuda()
+  net_Concat = net_Concat.cuda()
   #
   criterionGAN = criterionGAN.cuda()
   criterionL1 = criterionL1.cuda()
@@ -140,9 +145,9 @@ mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 
 false_label_tensor = Variable(torch.LongTensor())
-false_label_tensor  = torch.zeros(opt.batchSize,1024,1,1)
+false_label_tensor  = torch.zeros(opt.batchSize,1)
 true_label_tensor = Variable(torch.LongTensor())
-true_label_tensor  = torch.ones(opt.batchSize,1024,1,1)
+true_label_tensor  = torch.ones(opt.batchSize,1)
 
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
@@ -173,7 +178,7 @@ def train(epoch,mode=0):
   #1..OnlyDiscriminator
   #2..Both 
   flag_global = True
-  flag_local  = False
+  flag_local  = True
   flag_edge   = False
   #Generatorの学習タスク
   for iteration, batch in enumerate(training_data_loader, 1):
@@ -203,6 +208,7 @@ def train(epoch,mode=0):
     #####################################################################
     real_a_image_cpu = batch[1]#batch[1]が原画像そのまんま
     real_a_image.data.resize_(real_a_image_cpu.size()).copy_(real_a_image_cpu)#realAへのデータ流し込み
+    #real_a_image = batch[1]
     #####################################################################
     #先ずGeneratorを起動して補完モデルを行う
     #####################################################################
@@ -255,8 +261,11 @@ def train(epoch,mode=0):
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇
       if (flag_global == True) and (flag_local == True):
-        pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
-        pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+        #Concatを使って繋げる
+        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+        #pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
+        #pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
       #〇×
       if (flag_global == True) and (flag_local == False):
         pred_realD = pred_realD_Global
@@ -308,8 +317,8 @@ def train(epoch,mode=0):
         #pred_fakeは偽生成画像を入力としたときの尤度テンソル
         #〇〇
         if (flag_global == True) and (flag_local == True):
-          pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
-          pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+          pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+          pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
         #〇×
         if (flag_global == True) and (flag_local == False):
           pred_realD = pred_realD_Global
@@ -328,7 +337,7 @@ def train(epoch,mode=0):
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
       if mode == 2:
-        loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+        loss_d_fakeD = criterionBCE(pred_fakeD, true_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
         loss_g += loss_d_fakeD
       
       loss_g.backward()
@@ -445,8 +454,6 @@ total_epoch = 50
 
 for epoch in range(1, total_epoch + 1):
 #discriminatorのtrain
-  netG = torch.load("checkpoint/testing_modelG_15.pth")
-  netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
   train(epoch,mode=2)#両方
   checkpoint(epoch,2)
 

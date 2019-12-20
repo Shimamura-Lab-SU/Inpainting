@@ -3,6 +3,7 @@ from os.path import join
 
 import torch.utils.data as data
 import torchvision.transforms as transforms
+import torch
 
 from util import is_image_file, load_img
 
@@ -26,9 +27,9 @@ class DatasetFromFolder(data.Dataset):
     def __getitem__(self, index):
         # Load Image
         input = load_img(join(self.photo_path, self.image_filenames[index]))
-        input = self.transform(input)
+        input = self.transform(input)#.type(torch.float16)
         target = load_img(join(self.sketch_path, self.image_filenames[index]))
-        target = self.transform(target)
+        target = self.transform(target)#.type(torch.float16)
 
         return input, target
 

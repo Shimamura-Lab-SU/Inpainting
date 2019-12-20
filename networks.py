@@ -46,6 +46,10 @@ def define_D_Edge(input_nc, output_nc, ndf, gpu_ids=[0]):
   netD_Edge.apply(weights_init)
   return netD_Edge
 
+def define_Concat(input_nc, output_nc, gpu_ids=[0]):
+  net_Concat = Concatenation(input_nc, output_nc, gpu_ids)
+  net_Concat.apply(weights_init)
+  return net_Concat
 
 def print_network(net):
   num_params = 0
@@ -195,6 +199,28 @@ class Global_Discriminator(nn.Module):
 
   def forward(self, input):
     #上の役割はGPUによる並列処理
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        return self.model(input)
+
+
+class Concatenation(nn.Module):
+  def __init__(self, input_nc, output_nc, gpu_ids=[] ):
+      super(Concatenation, self).__init__()
+      self.gpu_ids = gpu_ids
+      self.input_nc = input_nc
+      self.output_nc = output_nc
+
+      model = [nn.Linear(input_nc,output_nc)]
+
+      model += [nn.Sigmoid()]
+      self.model = nn.Sequential(*model)
+
+  def forward(self, _global_input, _local_input):
+    #catで入寮同士をつなぐ
+    input = torch.cat((_global_input,_local_input),1)
+    input = input.view(-1,2048)
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
