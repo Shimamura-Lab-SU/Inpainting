@@ -118,7 +118,6 @@ print_network(netD_Local)
 print_network(netD_Edge)
 print('-----------------------------------------------')
 
-real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 if opt.cuda:
   #
@@ -133,9 +132,10 @@ if opt.cuda:
   criterionMSE = criterionMSE.cuda()
   criterionBCE = criterionBCE.cuda()
   #
-  real_a_image = real_a_image.cuda()
+  #real_a_image = real_a_image.cuda()
 
-real_a_image = Variable(real_a_image)
+#ここでCPUに置いてあるreal_aを定義
+real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 
 white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
@@ -153,23 +153,18 @@ true_label_tensor  = torch.ones(opt.batchSize,1)
 seed = random.seed(1297)
 
 #マスク、ラベルテンソルのgpuセット
-if opt.cuda:
-  mask_channel_boolen = mask_channel_boolen.cuda()
-  mask_channel_float = mask_channel_float.cuda()
+#if opt.cuda:
+#  mask_channel_boolen = mask_channel_boolen.cuda()
+#  mask_channel_float = mask_channel_float.cuda()
 #  random_mask_boolen_64 = mask_channel_boolen.cuda()
 #  random_mask_float_64 = mask_channel_float.cuda()
 #  random_mask_boolen_128 = mask_channel_boolen.cuda()
 #  random_mask_float_128 = mask_channel_float.cuda()
-  true_label_tensor = true_label_tensor.cuda()
-  false_label_tensor = false_label_tensor.cuda()
-  white_channel_float_128 = white_channel_float_128.cuda()
+#  true_label_tensor = true_label_tensor.cuda()
+#  false_label_tensor = false_label_tensor.cuda()
+#  white_channel_float_128 = white_channel_float_128.cuda()
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
-
-
-
-
-
 
 def train(epoch,mode=0):
 
@@ -217,9 +212,11 @@ def train(epoch,mode=0):
     #####################################################################
     #先ずGeneratorを起動して補完モデルを行う
     #####################################################################
-
     #fake_start_imageは単一画像中の平均画素で埋められている
-    fake_start_image = torch.clone(real_a_image)
+
+
+    fake_start_image = torch.clone(real_a_image) #cp ←cpu
+
     for i in range(0, opt.batchSize):#中心中心
       fake_start_image[i][0] = torch.mean(real_a_image[i][0])
       fake_start_image[i][1] = torch.mean(real_a_image[i][1])
@@ -241,6 +238,9 @@ def train(epoch,mode=0):
     if mode==1 or mode==2:
       #マスクとrealbの結合
       real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
+
+      real_b_image_4d = real_b_image_4d.cuda()
+
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
       #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
