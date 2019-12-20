@@ -163,6 +163,28 @@ class ResnetGenerator(nn.Module):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
       else:
         return self.model(input)
+    
+    def forwardWithMasking(self, input, mask_size):
+      from train_all import opt, center
+      d = math.floor(mask_size/2)
+      fake_start_image = torch.clone(input) #cp ←cpu
+
+      for i in range(0, opt.batchSize):#中心中心
+        fake_start_image[i][0] = torch.mean(input[i][0])
+        fake_start_image[i][1] = torch.mean(input[i][1])
+        fake_start_image[i][2] = torch.mean(input[i][2])
+
+      #fake_start_image2を穴のサイズにトリムしたもの
+      #fake_start_image2 = fake_start_image[:][:][0:mask_size][0:mask_size]
+      #fake_start_image2.resize_(opt.batchSize,opt.input_nc,mask_size,mask_size)
+
+      tensor_b = input.clone()    
+      tensor_b[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+
+      if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
+      else:
+        return self.model(tensor_b)
 
 
 

@@ -180,6 +180,9 @@ def train(epoch,mode=0):
   flag_global = True
   flag_local  = True
   flag_edge   = False
+
+  mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
+  mask_channel_3d_b = mask_channel_3d_b.cuda()
   #Generatorの学習タスク
   for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
 
@@ -215,39 +218,41 @@ def train(epoch,mode=0):
     #fake_start_imageは単一画像中の平均画素で埋められている
 
 
-    fake_start_image = torch.clone(real_a_image) #cp ←cpu
+    #fake_start_image = torch.clone(real_a_image) #cp ←cpu
 
-    for i in range(0, opt.batchSize):#中心中心
-      fake_start_image[i][0] = torch.mean(real_a_image[i][0])
-      fake_start_image[i][1] = torch.mean(real_a_image[i][1])
-      fake_start_image[i][2] = torch.mean(real_a_image[i][2])
+    #for i in range(0, opt.batchSize):#中心中心
+    #  fake_start_image[i][0] = torch.mean(real_a_image[i][0])
+    #  fake_start_image[i][1] = torch.mean(real_a_image[i][1])
+    #  fake_start_image[i][2] = torch.mean(real_a_image[i][2])
 
     #fake_start_image2を穴のサイズにトリムしたもの
-    fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
-    fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
+    #fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
+    #fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
 
     #12/10real_b_imageはreal_aの穴に平均画素を詰めたもの
-    center = math.floor(image_size / 2)
-    d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-    real_b_image = real_a_image.clone()    
-    real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+    #center = math.floor(image_size / 2)
+    #d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
+    #real_b_image = real_a_image.clone()    
+    #real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
     #####################################################################
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
+    real_a_image_4d = real_a_image_4d.cuda() 
 
-    real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
-    real_b_image_4d = real_b_image_4d.cuda()
+
+
+    #real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)#これはreal_aから作れないか？
+    #real_b_image_4d = real_b_image_4d.cuda()
 
     if mode==1 or mode==2:
       #マスクとrealbの結合
 
-      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
       #128*128の窓を作成 (あとで裏に回れるようにする)
       #真画像とマスクの結合..4次元に
-      real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
-      real_a_image_4d = real_a_image_4d.cuda()
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc) #ここをnetGの機能にする
       mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
       fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
@@ -311,7 +316,7 @@ def train(epoch,mode=0):
     if mode==0 or mode==2:
       #12/17optimizerをzero_gradする
       #optimizerG.zero_grad()
-      fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc)
       #fake_b_image = real_a_image.clone()
       #fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
@@ -339,11 +344,9 @@ def train(epoch,mode=0):
 
 
 		  #reconstructError
-      mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
-      mask_channel_3d_b = mask_channel_3d_b.cuda()
-      fake_b_image_masked = torch.masked_select(fake_b_image_raw, mask_channel_3d_b) #GPU回避不可能？
-      real_a_image_masked = torch.masked_select(real_a_image, mask_channel_3d_b) #1次元で(61440)出てくるので..
-      reconstruct_error = criterionMSE(fake_b_image_masked,real_a_image_masked)# 生成画像とオリジナルの差
+      #fake_b_image_masked =  #GPU回避不可能？
+      #real_a_image_masked =  #1次元で(61440)出てくるので..
+      reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
       if mode == 2:
