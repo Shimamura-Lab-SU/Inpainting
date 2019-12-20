@@ -210,9 +210,9 @@ class Global_Discriminator(nn.Module):
       model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
       #FullConvolution層 
-      model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
+      #model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
 
-      #model += [nn.Linear(512 * 4 * 4, output_nc)]
+      model += [nn.Linear(ndf * 8, output_nc)]
       model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
       #1024次元にしたい
       self.model = nn.Sequential(*model)
@@ -298,19 +298,18 @@ class Local_Discriminator(nn.Module):
       self.ndf = ndf
 
       #1
-      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),
-                
-                nn.ReLU(True)]
+      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1)]
-      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
 
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
 
       #FullConvolution層
-      model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
+      #model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
+      model += [nn.Linear(ndf * 8 , output_nc)]
       model += [nn.Sigmoid()]
       self.model = nn.Sequential(*model)
 
