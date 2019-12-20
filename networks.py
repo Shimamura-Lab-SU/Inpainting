@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
-
+import math
 
 def weights_init(m):
   classname = m.__class__.__name__
@@ -206,26 +206,43 @@ class Global_Discriminator(nn.Module):
     #カバーを行う
     from train_all import center,d
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
-    fake_b = _input_real.clone()
-    fake_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
 
 
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, fake_b, self.gpu_ids)
+        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
     else:
-        return self.model(fake_b)
+        return self.model(tensor_b)
 
   def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
+    #トリムを行う
+    from train_all import opt
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = input[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
     else:
-        return self.model(input)
+        return self.model(tensor_a)
 
   def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行ったのちにトリムを行う
+    #カバーを行う
+    from train_all import center,d,opt
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    #tensorbをinputとしてトリムを行う
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = tensor_b[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
     else:
-        return self.model(input)
+        return self.model(tensor_a)
 
 
 class Concatenation(nn.Module):
@@ -280,6 +297,50 @@ class Local_Discriminator(nn.Module):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
         return self.model(input)
+
+  #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行う
+    from train_all import center,d
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+
+
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
+    else:
+        return self.model(tensor_b)
+
+  def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
+    #トリムを行う
+    from train_all import opt
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = input[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
+    else:
+        return self.model(tensor_a)
+
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行ったのちにトリムを行う
+    #カバーを行う
+    from train_all import center,d,opt
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    #tensorbをinputとしてトリムを行う
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = tensor_b[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
+    else:
+        return self.model(tensor_a)
+
 
 #形質としてはLocalDiscriminatorと同じ形を目指す
 class Edge_Discriminator(nn.Module):

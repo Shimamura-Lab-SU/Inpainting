@@ -144,10 +144,6 @@ mask_channel_float = Set_Masks(image_size,center,center,hall_size) #古い宣言
 mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 
-false_label_tensor = Variable(torch.LongTensor())
-false_label_tensor  = torch.zeros(opt.batchSize,1)
-true_label_tensor = Variable(torch.LongTensor())
-true_label_tensor  = torch.ones(opt.batchSize,1)
 
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
@@ -264,10 +260,10 @@ def train(epoch,mode=0):
       if flag_global:
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
         pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
-      #if flag_local:
-      #  pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
-      #  fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
-      #  pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+      if flag_local:
+        pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
+        fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
+        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇
@@ -285,7 +281,14 @@ def train(epoch,mode=0):
       if (flag_global == False) and (flag_local == True):
         pred_realD = pred_realD_Global
         pred_fakeD = pred_fakeD_Global
+      #真偽はGPUに乗っける
+      false_label_tensor = Variable(torch.LongTensor())
+      false_label_tensor  = torch.zeros(opt.batchSize,1)
+      true_label_tensor = Variable(torch.LongTensor())
+      true_label_tensor  = torch.ones(opt.batchSize,1)
 
+      true_label_tensor = true_label_tensor.cuda()
+      false_label_tensor = false_label_tensor.cuda()
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
