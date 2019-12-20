@@ -176,7 +176,6 @@ class Global_Discriminator(nn.Module):
       self.input_nc = input_nc
       self.output_nc = output_nc
       self.ndf =ndf
-
       #1
       model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
@@ -195,10 +194,34 @@ class Global_Discriminator(nn.Module):
       model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
       #1024次元にしたい
       self.model = nn.Sequential(*model)
-
-
+  #何もしないで直接ネットを走らせる場合
   def forward(self, input):
-    #上の役割はGPUによる並列処理
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        return self.model(input)
+
+  #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行う
+    from train_all import center,d
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    fake_b = _input_real.clone()
+    fake_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+
+
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, fake_b, self.gpu_ids)
+    else:
+        return self.model(fake_b)
+
+  def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        return self.model(input)
+
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:

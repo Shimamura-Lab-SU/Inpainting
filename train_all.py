@@ -140,7 +140,7 @@ real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
 ##Mc(inputMask)の定義
-mask_channel_float = Set_Masks(image_size,center,center,hall_size)
+mask_channel_float = Set_Masks(image_size,center,center,hall_size) #古い宣言
 mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 ##Md(RandomMask)の定義
 
@@ -156,7 +156,7 @@ seed = random.seed(1297)
 #if opt.cuda:
 #  mask_channel_boolen = mask_channel_boolen.cuda()
 #  mask_channel_float = mask_channel_float.cuda()
-#  random_mask_boolen_64 = mask_channel_boolen.cuda()
+#  random_mask_boolen_64 = mask_channel_boolen.cuda() #代入間違ってるけど大丈夫か
 #  random_mask_float_64 = mask_channel_float.cuda()
 #  random_mask_boolen_128 = mask_channel_boolen.cuda()
 #  random_mask_float_128 = mask_channel_float.cuda()
@@ -167,6 +167,7 @@ start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 
 def train(epoch,mode=0):
+
 
   epoch_start_time = time.time()
   #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
@@ -197,11 +198,11 @@ def train(epoch,mode=0):
     random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
     random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool)
 
-    if opt.cuda:
-      random_mask_float_64 =  random_mask_float_64.cuda()
-      random_mask_boolen_64 = random_mask_boolen_64.cuda()
-      random_mask_float_128 = random_mask_float_128.cuda()
-      random_mask_boolen_128 = random_mask_boolen_128.cuda()  
+    #if opt.cuda:
+    #  random_mask_float_64 =  random_mask_float_64.cuda()
+    #  random_mask_boolen_64 = random_mask_boolen_64.cuda()
+    #  random_mask_float_128 = random_mask_float_128.cuda()
+    #  random_mask_boolen_128 = random_mask_boolen_128.cuda()  
 
     #####################################################################
     #イメージテンソルの定義
@@ -236,6 +237,7 @@ def train(epoch,mode=0):
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
     if mode==1 or mode==2:
+      mask_channel_float = Set_Masks(image_size,center,center,hall_size)
       #マスクとrealbの結合
       real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
 
@@ -244,24 +246,28 @@ def train(epoch,mode=0):
       fake_b_image_raw = netG(real_b_image_4d) # C(x,Mc)
       #12/17optimizerをzero_gradする
       #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
-      fake_b_image = real_a_image.clone()
-      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
+      ##fake_b_image = real_a_image.clone()
+      ##fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d]
       fake_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
       real_c_image = torch.Tensor(opt.batchSize,1,Local_Window,Local_Window)
       #128*128の窓を作成 (あとで裏に回れるようにする)
-      fake_c_image = fake_b_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
-      real_c_image = real_a_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+      #fake_c_image = fake_b_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
+      #real_c_image = real_a_image[:,:,Mdpos_x-d2:Mdpos_x+d2,Mdpos_y-d2:Mdpos_y+d2]#↑でランダムに決めた位置
       #真画像とマスクの結合..4次元に
       real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
-      real_c_image_4d = torch.cat((real_c_image,white_channel_float_128),1) #LocalにもMdをかけるのか？←実質同じのため一旦All1のフィルタを入れる
-      if flag_global: 
+      real_a_image_4d = real_a_image_4d.cuda()
+      mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
+      fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
+      fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
+
+
+      if flag_global:
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
-        fake_b_image_4d = torch.cat((fake_b_image,mask_channel_float),1)
-        pred_fakeD_Global = netD_Global.forward(fake_b_image_4d.detach()) #pred_falke=D(C(x,Mc),Mc)
-      if flag_local:
-        pred_realD_Local  =  netD_Local.forward(real_c_image_4d.detach())
-        fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
-        pred_fakeD_Local = netD_Local.forward(fake_c_image_4d.detach()) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+      #if flag_local:
+      #  pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
+      #  fake_c_image_4d = torch.cat((fake_c_image,white_channel_float_128),1)
+      #  pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇
