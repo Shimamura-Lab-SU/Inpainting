@@ -19,7 +19,7 @@ from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 from   util                   import save_img
 from   function import Set_Md, Set_Masks
-
+from tqdm import tqdm
 
 
 import random
@@ -172,6 +172,8 @@ start_time = datetime.datetime.now()
 
 
 def train(epoch,mode=0):
+
+  epoch_start_time = time.time()
   #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
   loss_plot_array = np.empty((int(max_dataset_num / opt.batchSize),4))
   #0..OnlyGenerator
@@ -181,7 +183,9 @@ def train(epoch,mode=0):
   flag_local  = True
   flag_edge   = False
   #Generatorの学習タスク
-  for iteration, batch in enumerate(training_data_loader, 1):
+  for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
+
+
     #####################################################################
     #ランダムマスクの作成
     #####################################################################
@@ -203,6 +207,7 @@ def train(epoch,mode=0):
       random_mask_boolen_64 = random_mask_boolen_64.cuda()
       random_mask_float_128 = random_mask_float_128.cuda()
       random_mask_boolen_128 = random_mask_boolen_128.cuda()  
+
     #####################################################################
     #イメージテンソルの定義
     #####################################################################
@@ -358,7 +363,7 @@ def train(epoch,mode=0):
     #ログの作成、画像の出力
     #####################################################################
     if mode == 0 or mode == 2:
-      print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_g.item()  ))
+      #print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_g.item()  ))
       if(epoch % 10 == 9):
         if(iteration <= 10):#10っ回に1回は10倍サンプルを吐く
           tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
@@ -368,9 +373,9 @@ def train(epoch,mode=0):
           tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration,mode)
           tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration,mode)
 
-    if mode == 1 or mode == 2:
+    #if mode == 1 or mode == 2:
       #後でGlobalとLocalで同時に出すことも検討
-      print("===> Epoch[{}]({}/{}): loss_d: {:.4f}".format(epoch, iteration, len(training_data_loader),  loss_d.item()))
+      #print("===> Epoch[{}]({}/{}): loss_d: {:.4f}".format(epoch, iteration, len(training_data_loader),  loss_d.item()))
     if iteration == len(training_data_loader):
       if mode == 0:
         mode_dir = 'loss_output_gene\\'
@@ -386,6 +391,9 @@ def train(epoch,mode=0):
       with open(path + 'loss_log.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerows(loss_plot_array)
+
+
+
 
 
 #確認のための画像出力メソッド
@@ -404,7 +412,7 @@ def tensor_plot2image(__input,name,iteration=1,mode=0):
     os.mkdir(dirname)
   path = os.getcwd() + '\\' + dirname + '\\'
   vutils.save_image(__input.detach(), path + name + '.jpg')
-  print('saved testing image')
+  #print('saved testing image')
 
 
 def checkpoint(epoch,mode=0):

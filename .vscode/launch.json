@@ -15,7 +15,7 @@
 
             "args":[
                 //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
-                "--dataset=Inpainting" ,"--batchSize=15","--testBatchSize=15","--nEpochs=50","--cuda","--threads=0"
+                "--dataset=Inpainting" ,"--batchSize=5","--testBatchSize=15","--nEpochs=50","--cuda","--threads=0"
             ]
         }
     ]
