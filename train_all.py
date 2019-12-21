@@ -259,8 +259,8 @@ def train(epoch,mode=0):
 
 
       if flag_global:
-        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
         pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_local:
 
         #テストで畳み込み層だけ回してサイズを確認してみる

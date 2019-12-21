@@ -199,6 +199,10 @@ class Global_Discriminator(nn.Module):
       self.output_nc = output_nc
       self.ndf =ndf
       #1
+      self.model = nn.Sequential(*model)
+      self.model2 = nn.Sequential(*model_dence)
+
+
       model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
       model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
@@ -212,16 +216,24 @@ class Global_Discriminator(nn.Module):
       #FullConvolution層 
       #model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
 
-      model += [nn.Linear(ndf * 8, output_nc)]
-      model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
-      #1024次元にしたい
+      model_dence = [nn.Linear(ndf * 8, output_nc)]
+      model_dence += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
       self.model = nn.Sequential(*model)
-  #何もしないで直接ネットを走らせる場合
+      self.model2 = nn.Sequential(*model_dence)
+
   def forward(self, input):
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      out = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      #Viewで中間層から形状を変える
+      out = out.view(out.size(0),-1) 
+      out = nn.parallel.data_parallel(self.model2, out, self.gpu_ids) # 全結合層
+      return out      
     else:
-        return self.model(input)
+      out = self.model(input)
+      #Flatten
+      out = out.view(out.size(0),-1)
+      out = self.model2(out) 
+      return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
   def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0):
@@ -231,11 +243,7 @@ class Global_Discriminator(nn.Module):
     tensor_b = _input_real.clone()
     tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
 
-
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
-    else:
-        return self.model(tensor_b)
+    return self.forward(tensor_b)
 
   def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
     #トリムを行う
@@ -244,10 +252,7 @@ class Global_Discriminator(nn.Module):
     tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
     tensor_a = input[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
 
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
-    else:
-        return self.model(tensor_a)
+    return self.forward(tensor_a)
 
   def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
     #カバーを行ったのちにトリムを行う
@@ -261,11 +266,7 @@ class Global_Discriminator(nn.Module):
     tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
     tensor_a = tensor_b[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
 
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
-    else:
-        return self.model(tensor_a)
-
+    return self.forward(tensor_a)
 
 class Concatenation(nn.Module):
   def __init__(self, input_nc, output_nc, gpu_ids=[] ):
