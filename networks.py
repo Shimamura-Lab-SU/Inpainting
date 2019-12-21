@@ -296,28 +296,41 @@ class Local_Discriminator(nn.Module):
       self.input_nc = input_nc
       self.output_nc = output_nc
       self.ndf = ndf
-
+      #モデルを畳み込み層(conv)と全結合層(dence)に分ける
       #1
-      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)] #4
       #conv2
-      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)] 
       #conv2
-      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
-      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
 
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)] #[b,512,4,4]がconv層の出力
 
       #FullConvolution層
       #model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
-      model += [nn.Linear(ndf * 8 , output_nc)]
-      model += [nn.Sigmoid()]
-      self.model = nn.Sequential(*model)
+      model_dence = [nn.Linear(ndf * 8 * 4 * 4 , output_nc)]
+      model_dence += [nn.Sigmoid()]
+      self.model_conv = nn.Sequential(*model_conv)
+      self.mocel_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
+      #Viewで中間層から形状を変える
+      out = out.view(out.size(0),-1) 
+      out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
+      return out      
     else:
-        return self.model(input)
+      out = self.model_conv(input)
+      #Flatten
+      out = out.view(out.size(0),-1)
+      out = self.model_dence(out) 
+      return out
+
+  def check_cnn_size(self, size_check ):
+    out = self.model_conv(size_check)
+    return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
   def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0):
@@ -327,11 +340,7 @@ class Local_Discriminator(nn.Module):
     tensor_b = _input_real.clone()
     tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
 
-
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
-    else:
-        return self.model(tensor_b)
+    return(self.forward(tensor_b))
 
   def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
     #トリムを行う
@@ -340,10 +349,9 @@ class Local_Discriminator(nn.Module):
     tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
     tensor_a = input[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
 
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
-    else:
-        return self.model(tensor_a)
+    return(self.forward(tensor_a))
+
+
 
   def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
     #カバーを行ったのちにトリムを行う
@@ -357,10 +365,7 @@ class Local_Discriminator(nn.Module):
     tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
     tensor_a = tensor_b[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
 
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_a, self.gpu_ids)
-    else:
-        return self.model(tensor_a)
+    return(self.forward(tensor_a))
 
 
 #形質としてはLocalDiscriminatorと同じ形を目指す
