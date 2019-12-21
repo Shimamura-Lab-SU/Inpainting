@@ -199,8 +199,6 @@ class Global_Discriminator(nn.Module):
       self.output_nc = output_nc
       self.ndf =ndf
       #1
-      self.model = nn.Sequential(*model)
-      self.model2 = nn.Sequential(*model_dence)
 
 
       model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
@@ -213,26 +211,24 @@ class Global_Discriminator(nn.Module):
       model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
       model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
-      #FullConvolution層 
-      #model += [nn.Conv2d(ndf * 8, output_nc, 4, 1)]
 
-      model_dence = [nn.Linear(ndf * 8, output_nc)]
-      model_dence += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
+      model += [nn.Linear(ndf * 8, output_nc)]
+      model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
       self.model = nn.Sequential(*model)
-      self.model2 = nn.Sequential(*model_dence)
+      #self.mocel_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
       out = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
       #Viewで中間層から形状を変える
       out = out.view(out.size(0),-1) 
-      out = nn.parallel.data_parallel(self.model2, out, self.gpu_ids) # 全結合層
+      #out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
       return out      
     else:
       out = self.model(input)
       #Flatten
       out = out.view(out.size(0),-1)
-      out = self.model2(out) 
+      #out = self.model_dence(out) 
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
