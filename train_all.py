@@ -90,14 +90,14 @@ print('===> Building model')
 
 #先ず学習済みのGeneratorを読み込んで入れる
 #netG = torch.load(opt.G_model)
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 disc_input_nc = 4
 disc_outpuc_nc = 1024
 #netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netG = torch.load("checkpoint/testing_modelG_15.pth")
+#netG = torch.load("checkpoint/testing_modelG_15.pth")
 netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 net_Concat = define_Concat(2048,1,[0])
 
@@ -240,7 +240,7 @@ def train(epoch,mode=0):
     #####################################################################
     real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
     real_a_image_4d = real_a_image_4d.cuda() 
-
+    mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
 
 
     #real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)#これはreal_aから作れないか？
@@ -253,7 +253,7 @@ def train(epoch,mode=0):
       #128*128の窓を作成 (あとで裏に回れるようにする)
       #真画像とマスクの結合..4次元に
       fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc) #ここをnetGの機能にする
-      mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
+      
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
       fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
 
@@ -369,8 +369,11 @@ def train(epoch,mode=0):
 
       loss_plot_array[iteration-1][0] = epoch
       loss_plot_array[iteration-1][1] = iteration
-      loss_plot_array[iteration-1][2] = loss_g
-      loss_plot_array[iteration-1][3] = loss_d
+
+      if mode == 0 or mode == 2:
+        loss_plot_array[iteration-1][2] = loss_g
+      if mode == 1:
+        loss_plot_array[iteration-1][3] = loss_d
 
 
 
@@ -469,9 +472,9 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 0
+gene_only_epoch = 50
 disc_only_epoch = 0
-total_epoch = 50
+total_epoch = 0
 
 #使用する既存のモデルがある場合はここでloadする
 
@@ -493,7 +496,7 @@ for epoch in range(1, gene_only_epoch + 1):
 
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
-  netG = torch.load("checkpoint/testing_modelG_15.pth")
+  #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
