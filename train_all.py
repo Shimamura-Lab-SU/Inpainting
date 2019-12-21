@@ -57,7 +57,7 @@ d = 32 #生成窓の半分の大きさ
 d2 =  64#LocalDiscriminator窓の半分の大きさ
 padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
 
-
+disc_weight = 0.0004
 
 print(opt)
 
@@ -97,7 +97,7 @@ disc_outpuc_nc = 1024
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netG = torch.load("checkpoint/testing_modelG_15.pth")
+netG = torch.load("checkpoint/testing_modelG_50.pth")
 netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 net_Concat = define_Concat(2048,1,[0])
 
@@ -303,7 +303,10 @@ def train(epoch,mode=0):
       #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
     #2つのロスの足し合わせ
-      loss_d =  loss_d_realD + loss_d_fakeD 
+      if mode == 1:
+        loss_d = loss_d_realD + loss_d_fakeD 
+      if mode == 2:
+        loss_d = (loss_d_fakeD + loss_d_fakeD) * disc_weight
     #backward
       loss_d.backward()
 
@@ -357,7 +360,7 @@ def train(epoch,mode=0):
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
       if mode == 2:
-        loss_d_fakeD = criterionBCE(pred_fakeD, true_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+        loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
         loss_g += loss_d_fakeD
       
       loss_g.backward()
@@ -472,9 +475,9 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 50
+gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
+total_epoch = 50
 
 #使用する既存のモデルがある場合はここでloadする
 
