@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.utils as vutils
+import torch.nn.functional as F
+
 from   torch.autograd         import Variable
 from   torch.utils.data       import DataLoader
 from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local,define_Concat
@@ -77,7 +79,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 150#データセットの数
+max_dataset_num = 1500#データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -85,8 +87,6 @@ test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
 print('===> Building model')
 
 #3つのタスクのそれぞれのエポック
-
-
 
 #先ず学習済みのGeneratorを読み込んで入れる
 #netG = torch.load(opt.G_model)
@@ -161,6 +161,8 @@ seed = random.seed(1297)
 #  white_channel_float_128 = white_channel_float_128.cuda()
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
+
+
 
 def train(epoch,mode=0):
 
@@ -262,15 +264,13 @@ def train(epoch,mode=0):
         pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_local:
-
-        #テストで畳み込み層だけ回してサイズを確認してみる
-        #size_check = torch.FloatTensor(opt.batchSize,4,128,128)
-        #size_check = size_check.cuda()
-        #print(netD_Local.check_cnn_size(size_check).size())
-
-        #LocalもGlobalも[batchsize,1024]で値を返したい
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
         pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+      if flag_edge:
+        #real_a_image_edge.datach
+        pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
+        #real_a_image_edge.datach #エッジ処理はネットワーク内でさせる
+        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇

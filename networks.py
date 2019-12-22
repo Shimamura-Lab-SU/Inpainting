@@ -4,6 +4,26 @@ from torch.autograd import Variable
 import numpy as np
 import math
 
+import torchvision.utils as vutils
+import torch.nn.functional as F
+
+def edge_detection(__input):
+    kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]], np.float32)  # convolution filter
+    with torch.no_grad():
+        # [out_ch, in_ch, .., ..] : channel wiseに計算
+        edge_k = torch.as_tensor(kernel.reshape(1, 1, 3, 3)) #cudaでやる場合デバイスを指定する
+
+        # エッジ検出はグレースケール化してからやる
+        color = __input  # color image [1, 3, H, W]
+        gray_kernel = np.array([0.299, 0.587, 0.114], np.float32).reshape(1, 3, 1, 1)  # color -> gray kernel
+        gray_k = torch.as_tensor(gray_kernel)
+        gray = torch.sum(color * gray_k, dim=1, keepdim=True)  # grayscale image [1, 1, H, W]
+
+        # エッジ検出
+        edge_image = F.conv2d(gray, edge_k, padding=1)
+
+    return edge_image
+
 def weights_init(m):
   classname = m.__class__.__name__
   if classname.find('Conv') != -1:
@@ -368,7 +388,7 @@ class Local_Discriminator(nn.Module):
     return(self.forward(tensor_a))
 
 
-#形質としてはLocalDiscriminatorと同じ形を目指す
+#EdgeDiscriminator
 class Edge_Discriminator(nn.Module):
   def __init__(self, input_nc, output_nc ,ndf= 64,gpu_ids=[] ):
       super(Edge_Discriminator, self).__init__()
@@ -378,29 +398,77 @@ class Edge_Discriminator(nn.Module):
       self.ndf = ndf
 
       #1
-      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),
-                
-                nn.ReLU(True)]
+      model_conv = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model_conv += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1)]
       #conv2
-      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1)]
-      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model_conv += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model_conv += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
 
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
+      model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1)]
 
       #1024次元にしたい
       #FullConvolution層  
-      model += [nn.Conv2d(ndf * 8, output_nc, 2, 1)] #カーネルを4→2にすれば良いらしいが不明
+      model_dence = [nn.Linear(ndf * 8 * 2 * 2 , output_nc)]
+      model_dence += [nn.Sigmoid()]
 
-      self.model = nn.Sequential(*model)
+      self.model = nn.Sequential(*model_conv)
+      self.model = nn.Sequential(*model_dence)
+
+
 
   def forward(self, input):
+    #入ってきたTensorをエッジ変換する
+    input_edge = edge_detection(input[:,0:3,:,:])
+    #2dはGray+Maskの2channel
+    input_2d = torch.cat((input_edge,input[:,3,:,:]),1)
+
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
+      #Viewで中間層から形状を変える
+      out = out.view(out.size(0),-1) 
+      out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
+      return out      
     else:
-        return self.model(input)
+      out = self.model_conv(input)
+      #Flatten
+      out = out.view(out.size(0),-1)
+      out = self.model_dence(out) 
+      return out
+
+  #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行う
+    from train_all import center,d
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+
+    return(self.forward(tensor_b))
+
+  def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0):
+    #トリムを行う
+    from train_all import opt
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = input[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
+    return(self.forward(tensor_a))
+
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0):
+    #カバーを行ったのちにトリムを行う
+    #カバーを行う
+    from train_all import center,d,opt
+    #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
+    tensor_b = _input_real.clone()
+    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    #tensorbをinputとしてトリムを行う
+    d = math.floor(trim_size / 2)
+    tensor_a = torch.Tensor(opt.batchSize,1,trim_size,trim_size)
+    tensor_a = tensor_b[:,:,_xpos-d:_xpos+d,_ypos-d:_ypos+d]
+
+    return(self.forward(tensor_a))
+
 
 # Define a resnet block
 class ResnetBlock(nn.Module):
