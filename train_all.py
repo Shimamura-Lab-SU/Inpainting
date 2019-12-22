@@ -475,7 +475,7 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 0
+gene_only_epoch = 50
 disc_only_epoch = 0
 total_epoch = 5
 
