@@ -248,6 +248,7 @@ def train(epoch,mode=0):
     #real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)#これはreal_aから作れないか？
     #real_b_image_4d = real_b_image_4d.cuda()
 
+    #1stDiscriminator
     if mode==1 or mode==2:
       #マスクとrealbの結合
 
@@ -273,13 +274,18 @@ def train(epoch,mode=0):
         pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
-      #〇〇
-      if (flag_global == True) and (flag_local == True):
+      #〇〇〇(残りのパターンは省略)
+      if (flag_global == True) and (flag_local == True) and (flag_edge == True):
         #Concatを使って繋げる
         pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
         pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
-        #pred_realD = torch.cat((pred_realD_Global,pred_realD_Local),1)
-        #pred_fakeD = torch.cat((pred_fakeD_Global,pred_fakeD_Local),1)
+
+      #〇〇
+      if (flag_global == True) and (flag_local == True) and (flag_edge == False):
+        #Concatを使って繋げる
+        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+
       #〇×
       if (flag_global == True) and (flag_local == False):
         pred_realD = pred_realD_Global
@@ -288,6 +294,7 @@ def train(epoch,mode=0):
       if (flag_global == False) and (flag_local == True):
         pred_realD = pred_realD_Global
         pred_fakeD = pred_fakeD_Global
+      
       #真偽はGPUに乗っける
       false_label_tensor = Variable(torch.LongTensor())
       false_label_tensor  = torch.zeros(opt.batchSize,1)
@@ -299,6 +306,11 @@ def train(epoch,mode=0):
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+      
+      if (flag_edge == True):
+        loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
+        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
+
       #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
       #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
@@ -306,7 +318,10 @@ def train(epoch,mode=0):
       if mode == 1:
         loss_d = loss_d_realD + loss_d_fakeD 
       if mode == 2:
-        loss_d = (loss_d_fakeD + loss_d_fakeD) * disc_weight
+        if (flag_edge == True):
+          loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
+        else:
+          loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
       loss_d.backward()
 
@@ -315,6 +330,8 @@ def train(epoch,mode=0):
         optimizerD_Global.step()
       if flag_local: 
         optimizerD_Local.step()
+      if flag_edge:
+        optimizerD_Edge.step()
 
     #マスクとrealbの結合
     #real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)
@@ -324,7 +341,7 @@ def train(epoch,mode=0):
 
 
     if mode==0 or mode==2:
-      #12/17optimizerをzero_gradする
+      
       #optimizerG.zero_grad()
       fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc)
       #fake_b_image = real_a_image.clone()
@@ -332,17 +349,27 @@ def train(epoch,mode=0):
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
       fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
 
+      #2ndDiscriminator
       if mode == 2:
         if flag_global: 
           pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         if flag_local:
           pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
-
+        if flag_edge:
+          pred_fakeD_Edge = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+          
         #pred_fakeは偽生成画像を入力としたときの尤度テンソル
+        #〇〇〇
+        if (flag_global == True) and (flag_local == True) and (flag_edge == True):
+          pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)#エッジはConcatしない
+          pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+
         #〇〇
-        if (flag_global == True) and (flag_local == True):
+        if (flag_global == True) and (flag_local == True) and (flag_edge == False):
+          #Concatを使って繋げる
           pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
           pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+
         #〇×
         if (flag_global == True) and (flag_local == False):
           pred_realD = pred_realD_Global
@@ -351,6 +378,7 @@ def train(epoch,mode=0):
         if (flag_global == False) and (flag_local == True):
           pred_realD = pred_realD_Global
           pred_fakeD = pred_fakeD_Global
+
 
 
 		  #reconstructError
@@ -362,6 +390,9 @@ def train(epoch,mode=0):
       if mode == 2:
         loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
         loss_g += loss_d_fakeD
+        if flag_edge == True:
+          loss_d_fakeD_Edge = disc_weight * criterionBCE(pred_fakeD_Edge, true_label_tensor)
+          loss_g += loss_d_fakeD_Edge
       
       loss_g.backward()
 		  #Optimizerの更新

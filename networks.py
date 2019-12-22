@@ -287,6 +287,7 @@ class Global_Discriminator(nn.Module):
 
     return self.forward(tensor_a)
 
+#Concatenation
 class Concatenation(nn.Module):
   def __init__(self, input_nc, output_nc, gpu_ids=[] ):
       super(Concatenation, self).__init__()
@@ -303,6 +304,15 @@ class Concatenation(nn.Module):
     #catで入寮同士をつなぐ
     input = torch.cat((_global_input,_local_input),1)
     input = input.view(-1,2048)
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        return self.model(input)
+  
+  def forward3(self, _global_input, _local_input, _edge_input):
+    #catで入寮同士をつなぐ
+    input = torch.cat((_global_input,_local_input,_edge_input),1)
+    input = input.view(-1,3072)
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
         return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
