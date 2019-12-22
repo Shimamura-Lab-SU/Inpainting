@@ -15,7 +15,7 @@
 
             "args":[
                 //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
-                "--dataset=Inpainting_Food" ,"--batchSize=10","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
+                "--dataset=Inpainting_Food" ,"--batchSize=5","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
             ]
         }
     ]

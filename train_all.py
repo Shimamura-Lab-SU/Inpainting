@@ -92,8 +92,8 @@ print('===> Building model')
 #netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-netG = torch.load("checkpoint/testing_modelG_50.pth")
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+#netG = torch.load("checkpoint/testing_modelG_50.pth")
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
@@ -477,7 +477,7 @@ def checkpoint_total(epoch):
 
 gene_only_epoch = 50
 disc_only_epoch = 0
-total_epoch = 5
+total_epoch = 0
 
 #使用する既存のモデルがある場合はここでloadする
 
