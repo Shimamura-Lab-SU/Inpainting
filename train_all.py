@@ -77,7 +77,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500 #データセットの数
+max_dataset_num = 150#データセットの数
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
@@ -90,15 +90,15 @@ print('===> Building model')
 
 #先ず学習済みのGeneratorを読み込んで入れる
 #netG = torch.load(opt.G_model)
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netG = torch.load("checkpoint/testing_modelG_50.pth")
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netG = torch.load("checkpoint/testing_modelG_50.pth")
-netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 net_Concat = define_Concat(2048,1,[0])
 
 criterionGAN = GANLoss()
@@ -475,9 +475,9 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 50
+gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
+total_epoch = 5
 
 #使用する既存のモデルがある場合はここでloadする
 
@@ -500,7 +500,7 @@ for epoch in range(1, gene_only_epoch + 1):
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
-  #train(epoch,mode=1)#Discriminatorのみ
+  train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
 
