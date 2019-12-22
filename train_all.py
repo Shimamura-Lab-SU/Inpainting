@@ -76,8 +76,8 @@ print('===> Loading datasets')
 root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
-training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
-testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
+training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
+testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=True)
 
 max_dataset_num = 1500#データセットの数
 
@@ -92,12 +92,13 @@ print('===> Building model')
 #netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-#netG = torch.load("checkpoint/testing_modelG_50.pth")
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netG = torch.load("checkpoint/testing_modelG1223_49.pth")
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
-#netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
-netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
+netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
+#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 net_Concat = define_Concat(2048,1,[0])
 
@@ -487,7 +488,7 @@ def checkpoint(epoch,mode=0):
     torch.save(netD_Global, net_dg_model_out_path)
     net_dl_model_out_path = "{}/netDl_model_epoch_{}.pth".format(path,epoch)
     torch.save(netD_Local, net_dl_model_out_path)
-  print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
+  #print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
 
 def checkpoint_total(epoch):
@@ -506,16 +507,18 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 50
+gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
+total_epoch = 100
 
 #使用する既存のモデルがある場合はここでloadする
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
-  checkpoint(epoch+1,2)
+  if(epoch % 5 == 0):
+    checkpoint(epoch+1,2)
+
 
 
 
@@ -524,7 +527,7 @@ for epoch in range(1, gene_only_epoch + 1):
 #discriminatorのtrain
 
   train(epoch,mode=0)#Discriminatorのみ
-  checkpoint(epoch)
+  checkpoint(epoch,0)
 
 
 
@@ -532,7 +535,7 @@ for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch,mode=1)#Discriminatorのみ
-  checkpoint(epoch)
+  checkpoint(epoch,1)
 
 
 
