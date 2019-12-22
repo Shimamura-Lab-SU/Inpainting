@@ -190,7 +190,7 @@ class ResnetGenerator(nn.Module):
 
 
 
-#256 512 64で行きたい
+#GlobalDiscriminator
 class Global_Discriminator(nn.Module):
   def __init__(self, input_nc, output_nc, ndf= 64, gpu_ids=[] ):
       super(Global_Discriminator, self).__init__()
@@ -201,34 +201,37 @@ class Global_Discriminator(nn.Module):
       #1
 
 
-      model = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
+      model_conv = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
       #conv2
-      model += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
-      model += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 2, ndf * 4, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 4, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
-      model += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
+      model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
 
-      model += [nn.Linear(ndf * 8, output_nc)]
-      model += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
-      self.model = nn.Sequential(*model)
-      #self.mocel_dence =  nn.Sequential(*model_dence)
+      model_dence = [nn.Linear(ndf * 8 * 4 * 4, output_nc)]
+      model_dence += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
+      self.model_conv = nn.Sequential(*model_conv)
+      self.mocel_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-      out = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
       #Viewで中間層から形状を変える
+      #サイズを知りたい
+      #size = out.size()
+
       out = out.view(out.size(0),-1) 
-      #out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
+      out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
       return out      
     else:
-      out = self.model(input)
+      out = self.model_conv(input)
       #Flatten
       out = out.view(out.size(0),-1)
-      #out = self.model_dence(out) 
+      out = self.model_dence(out) 
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
@@ -285,7 +288,7 @@ class Concatenation(nn.Module):
     else:
         return self.model(input)
 
-
+#LocalDiscriminator
 class Local_Discriminator(nn.Module):
   def __init__(self, input_nc, output_nc ,ndf= 64,gpu_ids=[] ):
       super(Local_Discriminator, self).__init__()
