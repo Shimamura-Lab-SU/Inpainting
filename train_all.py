@@ -97,7 +97,7 @@ disc_outpuc_nc = 1024
 #netD_Global = torch.load("checkpoint/testing_modelDg_10.pth")
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netG = torch.load("checkpoint/testing_modelG_50.pth")
+#netG = torch.load("checkpoint/testing_modelG_50.pth")
 netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 net_Concat = define_Concat(2048,1,[0])
 
@@ -475,16 +475,16 @@ def checkpoint_total(epoch):
 
 
 
-gene_only_epoch = 0
+gene_only_epoch = 50
 disc_only_epoch = 0
-total_epoch = 50
+total_epoch = 0
 
 #使用する既存のモデルがある場合はここでloadする
 
-for epoch in range(1, total_epoch + 1):
+for epoch in range(total_epoch):
 #discriminatorのtrain
-  train(epoch,mode=2)#両方
-  checkpoint(epoch,2)
+  train(epoch+1,mode=2)#両方
+  checkpoint(epoch+1,2)
 
 
 
@@ -500,7 +500,7 @@ for epoch in range(1, gene_only_epoch + 1):
 for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
-  train(epoch,mode=1)#Discriminatorのみ
+  #train(epoch,mode=1)#Discriminatorのみ
   checkpoint(epoch)
 
 
