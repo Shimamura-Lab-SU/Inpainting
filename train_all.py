@@ -389,7 +389,7 @@ def train(epoch,mode=0):
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
       if mode == 2:
-        loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+        loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) 
         loss_g += loss_d_fakeD
         if flag_edge == True:
           loss_d_fakeD_Edge = disc_weight * criterionBCE(pred_fakeD_Edge, true_label_tensor)
