@@ -76,7 +76,7 @@ print('===> Loading datasets')
 root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
-training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
+training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = 1500#データセットの数
@@ -182,7 +182,7 @@ def train(epoch,mode=0):
   #2..Both 
   flag_global = True
   flag_local  = True
-  flag_edge   = False
+  flag_edge   = True
 
   mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
   mask_channel_3d_b = mask_channel_3d_b.cuda()
