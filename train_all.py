@@ -101,6 +101,7 @@ netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
 #netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 net_Concat = define_Concat(2048,1,[0])
+net_Concat1 = define_Concat(1024,1,[0])
 
 criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
@@ -127,6 +128,7 @@ if opt.cuda:
   netD_Edge   = netD_Edge.cuda()
   netG = netG.cuda()
   net_Concat = net_Concat.cuda()
+  net_Concat1 = net_Concat1.cuda()
   #
   criterionGAN = criterionGAN.cuda()
   criterionL1 = criterionL1.cuda()
@@ -309,6 +311,8 @@ def train(epoch,mode=0):
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
       
       if (flag_edge == True):
+        pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
+        pred_realD_Edge = net_Concat1.forward1(pred_realD_Edge)
         loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
         loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
 
@@ -362,25 +366,26 @@ def train(epoch,mode=0):
         #pred_fakeは偽生成画像を入力としたときの尤度テンソル
         #〇〇〇
         if (flag_global == True) and (flag_local == True) and (flag_edge == True):
-          pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)#エッジはConcatしない
+          #pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)#エッジはConcatしない
           pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
 
         #〇〇
         if (flag_global == True) and (flag_local == True) and (flag_edge == False):
           #Concatを使って繋げる
-          pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+          #pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
           pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
 
         #〇×
         if (flag_global == True) and (flag_local == False):
-          pred_realD = pred_realD_Global
+          #pred_realD = pred_realD_Global
           pred_fakeD = pred_fakeD_Global
         #×〇
         if (flag_global == False) and (flag_local == True):
-          pred_realD = pred_realD_Global
+          #pred_realD = pred_realD_Global
           pred_fakeD = pred_fakeD_Global
 
-
+        if(flag_edge == True):
+          pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
 
 		  #reconstructError
       #fake_b_image_masked =  #GPU回避不可能？
