@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 from   torch.autograd         import Variable
 from   torch.utils.data       import DataLoader
-from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local,define_Concat
+from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local,define_Concat,edge_detection
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
 from   util                   import save_img
@@ -92,12 +92,24 @@ print('===> Building model')
 #netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-netG = torch.load("checkpoint/testing_modelG1223_49.pth")
+
+#100epoch組
+netG = torch.load("checkpoint/netG_model_epoch_100.pth")
+netD_Global = torch.load("checkpoint/netDg_model_epoch_100.pth")
+netD_Local = torch.load("checkpoint/netDl_model_epoch_100.pth")
+
+#401epoch組(Edgeなし)
+#netG = torch.load("checkpoint/netG_model_epoch_401.pth")
+#netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
+#netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
+
+
+#netG = torch.load("checkpoint/testing_modelG1223_49.pth")
 #netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
-netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
-netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
+#netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
+#netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
 #netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 net_Concat = define_Concat(2048,1,[0])
@@ -430,6 +442,9 @@ def train(epoch,mode=0):
         if(iteration == 1):
           tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration,mode)
           tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration,mode)
+          if(flag_edge==True):
+            tensor_plot2image(edge_detection( fake_b_image,False),'fakeC_Edge_Epoch_{}'.format(epoch),iteration,mode)
+
 
     #if mode == 1 or mode == 2:
       #後でGlobalとLocalで同時に出すことも検討
@@ -504,9 +519,11 @@ def checkpoint_total(epoch):
   net_g_model_out_path = "checkpoint/{}/Total_netG_model_epoch_{}.pth".format(opt.dataset, epoch)
   net_dg_model_out_path = "checkpoint/{}/Total_netDg_model_epoch_{}.pth".format(opt.dataset, epoch)
   net_dl_model_out_path = "checkpoint/{}/Total_netDl_model_epoch_{}.pth".format(opt.dataset, epoch)
+  net_de_model_out_path = "checkpoint/{}/Total_netDe_model_epoch_{}.pth".format(opt.dataset, epoch)
   torch.save(netG, net_g_model_out_path)
   torch.save(netD_Global, net_dg_model_out_path)
-  torch.save(netD_Local, net_dg_model_out_path)
+  torch.save(netD_Local, net_dl_model_out_path)
+  torch.save(netD_Edge, net_de_model_out_path)
   print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
 
@@ -514,7 +531,7 @@ def checkpoint_total(epoch):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 100
+total_epoch = 500
 
 #使用する既存のモデルがある場合はここでloadする
 

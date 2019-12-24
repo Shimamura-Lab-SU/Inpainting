@@ -7,27 +7,31 @@ import math
 import torchvision.utils as vutils
 import torch.nn.functional as F
 
+torch.device
 #ソーベル法に変更
-def edge_detection(__input):
+def edge_detection(__input,is_gpu = True):
     kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)  # convolution filter
     kernel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.float32)  # convolution filter
-    with torch.no_grad():
+
         # [out_ch, in_ch, .., ..] : channel wiseに計算
-        edge_k_x = torch.as_tensor(kernel_x.reshape(1, 1, 3, 3)) #cudaでやる場合デバイスを指定する
-        edge_k_y = torch.as_tensor(kernel_y.reshape(1, 1, 3, 3)) #cudaでやる場合デバイスを指定する
-        edge_k_x = edge_k_x.cuda()
-        edge_k_y = edge_k_y.cuda()
+    edge_k_x = torch.as_tensor(kernel_x.reshape(1, 1, 3, 3)) #cudaでやる場合デバイスを指定する
+    edge_k_y = torch.as_tensor(kernel_y.reshape(1, 1, 3, 3)) #cudaでやる場合デバイスを指定する
+    if(is_gpu):
+      edge_k_x = edge_k_x.cuda()
+      edge_k_y = edge_k_y.cuda()
 
         # エッジ検出はグレースケール化してからやる
-        color = __input  # color image [1, 3, H, W]
-        gray_kernel = np.array([0.299, 0.587, 0.114], np.float32).reshape(1, 3, 1, 1)  # color -> gray kernel
-        gray_k = torch.as_tensor(gray_kernel)
-        gray_k = gray_k.cuda()
-        gray = torch.sum(color * gray_k, dim=1, keepdim=True)  # grayscale image [1, 1, H, W]
+    color = __input  # color image [1, 3, H, W]
+    gray_kernel = np.array([0.299, 0.587, 0.114], np.float32).reshape(1, 3, 1, 1)  # color -> gray kernel
+    gray_k = torch.as_tensor(gray_kernel)
+
+    if(is_gpu):
+      gray_k = gray_k.cuda()
+    gray = torch.sum(color * gray_k, dim=1, keepdim=True)  # grayscale image [1, 1, H, W]
 
         # エッジ検出
-        edge_image_x = F.conv2d(gray, edge_k_x, padding=1)
-        edge_image = F.conv2d(edge_image_x, edge_k_y, padding=1)
+    edge_image_x = F.conv2d(gray, edge_k_x, padding=1)
+    edge_image = F.conv2d(edge_image_x, edge_k_y, padding=1)
 
     return edge_image
 
