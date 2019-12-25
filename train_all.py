@@ -433,47 +433,37 @@ def train(epoch,mode=0):
     #ログの作成、画像の出力
     #####################################################################
     if mode == 0 or mode == 2:
+      if(iteration == 1):
+        #初回のみRealA
+        if(epoch == 1):
+          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}".format(epoch))
+        Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}".format(epoch))
+        Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}".format(epoch))
+        if(flag_edge==True):
+          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}".format(epoch))
       #print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_g.item()  ))
-      if(epoch % 10 == 9):
-        if(iteration <= 10):#10っ回に1回は10倍サンプルを吐く
-          tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
-          tensor_plot2image(fake_b_image,'fakeC_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
-      else:
-        if(iteration == 1):
-          tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch_{}'.format(epoch),iteration,mode)
-          tensor_plot2image(fake_b_image,'fakeC_Last_Epoch_{}'.format(epoch),iteration,mode)
-          if(flag_edge==True):
-            tensor_plot2image(edge_detection( fake_b_image,False),'fakeC_Edge_Epoch_{}'.format(epoch),iteration,mode)
+      #if(epoch % 10 == 9):
+      #  if(iteration <= 10):#10っ回に1回は10倍サンプルを吐く
+      #    tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
+      #    tensor_plot2image(fake_b_image,'fakeC_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
 
-
-    #if mode == 1 or mode == 2:
-      #後でGlobalとLocalで同時に出すことも検討
-      #print("===> Epoch[{}]({}/{}): loss_d: {:.4f}".format(epoch, iteration, len(training_data_loader),  loss_d.item()))
-    if iteration == len(training_data_loader):
-      if mode == 0:
-        mode_dir = 'loss_output_gene\\'
-      elif mode == 1:
-        mode_dir = 'loss_output_disc\\'
-      else :
-        mode_dir = 'loss_output_total\\'
-      dirname = mode_dir + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
-
-      if not os.path.exists(dirname):
-        os.mkdir(dirname)
-      path = os.getcwd() + '\\' + dirname + '\\'
-      with open(path + 'loss_log.csv', 'a') as f:
+      #ロスの出力
+      with open(Loss_dir_ + '/loss_log.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerows(loss_plot_array)
 
 
 
+
+
+
 #リザルト関連の処理
 result_dir = 'Results' 
-Time_dir = str(start_date) + '-' + str(start_time.hour) +'-' + str(start_time.minute)  #時刻
-Image_Train_dir = 'Image_Train'
-Model_dir = 'Models'
-loss_dir = 'Losses'
-Image_Test_dir = 'Image_Test'
+Time_dir =  '/'+ str(start_date) + '-' + str(start_time.hour) +'-' + str(start_time.minute)  #時刻
+Image_Train_dir = '/Image_Train'
+Model_dir = '/Models'
+Loss_dir = '/Losses'
+Image_Test_dir = '/Image_Test'
 
 #Image_Trainディレクトリ
 RealA_dir = '/RealA'
@@ -558,14 +548,14 @@ def Plot2Image(__input,__dir,__name):
 
 def SaveModel(epoch,mode=0):
   if mode != 1:
-    net_g_model_out_path =  Model_netG_dir_ + "{}/netG_{}.pth".format(epoch)
+    net_g_model_out_path =  Model_netG_dir_ + "/netG_{}.pth".format(epoch)
     torch.save(netG, net_g_model_out_path)
   if mode != 0:
-    net_dg_model_out_path =  Model_netDg_dir_ + "{}/netDg_{}.pth".format(epoch)
+    net_dg_model_out_path =  Model_netDg_dir_ + "/netDg_{}.pth".format(epoch)
     torch.save(netD_Global, net_dg_model_out_path)
-    net_dl_model_out_path =  Model_netDl_dir_ + "{}/netDl_{}.pth".format(epoch)
+    net_dl_model_out_path =  Model_netDl_dir_ + "/netDl_{}.pth".format(epoch)
     torch.save(netD_Local, net_dl_model_out_path)
-    net_de_model_out_path =  Model_netDe_dir_ + "{}/netDe_{}.pth".format(epoch)
+    net_de_model_out_path =  Model_netDe_dir_ + "/netDe_{}.pth".format(epoch)
     torch.save(netD_Edge, net_de_model_out_path)
 
 
