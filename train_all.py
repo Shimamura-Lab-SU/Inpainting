@@ -467,6 +467,71 @@ def train(epoch,mode=0):
 
 
 
+#リザルト関連の処理
+result_dir = 'Results' 
+Time_dir = str(start_date) + '-' + str(start_time.hour) +'-' + str(start_time.minute)  #時刻
+Image_Train_dir = 'Image_Train'
+Model_dir = 'Models'
+loss_dir = 'Losses'
+Image_Test_dir = 'Image_Test'
+
+#Image_Trainディレクトリ
+RealA_dir = '/RealA'
+FakeB_dir = '/FakeB'
+FakeB_Raw_dir = '/FaleB_Raw'
+FakeB_Edge_dir = '/FakeB_Edge'
+
+#Image_Testディレクトリ(↑と同一)
+RealA_dir = '/RealA'
+FakeB_dir = '/FakeB'
+FakeB_Raw_dir = '/FaleB_Raw'
+FakeB_Edge_dir = '/FakeB_Edge'
+
+#Modelディレクトリ
+netG_dir = '/netG'
+netDg_dir = '/netDg'
+netDl_dir = '/netDl'
+netDe_dir = '/netDe'
+
+#末尾に_付きがトータルのディレクトリ
+TrainRealA_dir_ = result_dir+ Time_dir + Image_Train_dir + RealA_dir
+TrainFakeB_dir_ = result_dir+ Time_dir + Image_Train_dir + FakeB_dir
+TrainFakeB_Raw_dir_ = result_dir+ Time_dir + Image_Train_dir + FakeB_Raw_dir
+TrainFakeB_Edge_dir_ = result_dir+ Time_dir + Image_Train_dir + FakeB_Edge_dir
+
+TestRealA_dir_ = result_dir+ Time_dir + Image_Test_dir + RealA_dir
+TestFakeB_dir_ = result_dir+ Time_dir + Image_Test_dir + FakeB_dir
+TestFakeB_Raw_dir_ = result_dir+ Time_dir + Image_Test_dir + FakeB_Raw_dir
+TestFakeB_Edge_dir_ = result_dir+ Time_dir + Image_Test_dir + FakeB_Edge_dir
+
+Model_netG_dir_  = result_dir+ Time_dir + Model_dir + netG_dir
+Model_netDg_dir_ = result_dir+ Time_dir + Model_dir + netDg_dir
+Model_netDl_dir_ = result_dir+ Time_dir + Model_dir + netDl_dir
+Model_netDe_dir_ = result_dir+ Time_dir + Model_dir + netDe_dir
+
+Loss_dir_ = result_dir+ Time_dir + Loss_dir
+
+os.makedirs(TrainRealA_dir_  ,exist_ok=True)
+os.makedirs(TrainFakeB_dir_   ,exist_ok=True)
+os.makedirs(TrainFakeB_Raw_dir_  ,exist_ok=True)
+os.makedirs(TrainFakeB_Edge_dir_  ,exist_ok=True)
+
+os.makedirs(TestRealA_dir_  ,exist_ok=True)
+os.makedirs(TestFakeB_dir_  ,exist_ok=True)
+os.makedirs(TestFakeB_Raw_dir_  ,exist_ok=True)
+os.makedirs(TestFakeB_Edge_dir_  ,exist_ok=True)
+
+os.makedirs(Model_netG_dir_  ,exist_ok=True)
+os.makedirs(Model_netDg_dir_ ,exist_ok=True)
+os.makedirs(Model_netDl_dir_  ,exist_ok=True)
+os.makedirs(Model_netDe_dir_  ,exist_ok=True)
+
+os.makedirs(Loss_dir_  ,exist_ok=True)
+
+#↑の通りにディレクトリを作成する
+
+#プロパティのログを出力する(モード,エポック数など)
+
 
 
 #確認のための画像出力メソッド
@@ -485,7 +550,23 @@ def tensor_plot2image(__input,name,iteration=1,mode=0):
     os.mkdir(dirname)
   path = os.getcwd() + '\\' + dirname + '\\'
   vutils.save_image(__input.detach(), path + name + '.jpg')
+
   #print('saved testing image')
+
+def Plot2Image(__input,__dir,__name):
+  vutils.save_image(__input.detach(), __dir + '/' + __name + '.jpg')
+
+def SaveModel(epoch,mode=0):
+  if mode != 1:
+    net_g_model_out_path =  Model_netG_dir_ + "{}/netG_{}.pth".format(epoch)
+    torch.save(netG, net_g_model_out_path)
+  if mode != 0:
+    net_dg_model_out_path =  Model_netDg_dir_ + "{}/netDg_{}.pth".format(epoch)
+    torch.save(netD_Global, net_dg_model_out_path)
+    net_dl_model_out_path =  Model_netDl_dir_ + "{}/netDl_{}.pth".format(epoch)
+    torch.save(netD_Local, net_dl_model_out_path)
+    net_de_model_out_path =  Model_netDe_dir_ + "{}/netDe_{}.pth".format(epoch)
+    torch.save(netD_Edge, net_de_model_out_path)
 
 
 def checkpoint(epoch,mode=0):
@@ -508,26 +589,9 @@ def checkpoint(epoch,mode=0):
     torch.save(netD_Global, net_dg_model_out_path)
     net_dl_model_out_path = "{}/netDl_model_epoch_{}.pth".format(path,epoch)
     torch.save(netD_Local, net_dl_model_out_path)
+    net_de_model_out_path = "{}/netDe_model_epoch_{}.pth".format(path,epoch)
+    torch.save(netD_Edge, net_de_model_out_path)
   #print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
-
-
-def checkpoint_total(epoch):
-  if not os.path.exists("checkpoint"):
-    os.mkdir("checkpoint")
-  if not os.path.exists(os.path.join("checkpoint", opt.dataset)):
-    os.mkdir(os.path.join("checkpoint", opt.dataset))
-  net_g_model_out_path = "checkpoint/{}/Total_netG_model_epoch_{}.pth".format(opt.dataset, epoch)
-  net_dg_model_out_path = "checkpoint/{}/Total_netDg_model_epoch_{}.pth".format(opt.dataset, epoch)
-  net_dl_model_out_path = "checkpoint/{}/Total_netDl_model_epoch_{}.pth".format(opt.dataset, epoch)
-  net_de_model_out_path = "checkpoint/{}/Total_netDe_model_epoch_{}.pth".format(opt.dataset, epoch)
-  torch.save(netG, net_g_model_out_path)
-  torch.save(netD_Global, net_dg_model_out_path)
-  torch.save(netD_Local, net_dl_model_out_path)
-  torch.save(netD_Edge, net_de_model_out_path)
-  print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
-
-
-
 
 gene_only_epoch = 0
 disc_only_epoch = 0
@@ -539,7 +603,7 @@ for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
   if(epoch % 5 == 0):
-    checkpoint(epoch+1,2)
+    SaveModel(epoch+1,2)
 
 
 
@@ -549,7 +613,7 @@ for epoch in range(1, gene_only_epoch + 1):
 #discriminatorのtrain
 
   train(epoch,mode=0)#Discriminatorのみ
-  checkpoint(epoch,0)
+  SaveModel(epoch,0)
 
 
 
@@ -557,8 +621,8 @@ for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch,mode=1)#Discriminatorのみ
-  checkpoint(epoch,1)
-
+#  checkpoint(epoch,1)
+  SaveModel(epoch,1)
 
 
 
