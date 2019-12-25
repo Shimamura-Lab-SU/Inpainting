@@ -195,12 +195,12 @@ class ResnetGenerator(nn.Module):
       else:
         return self.model(input)
     
-    def forwardWithMasking(self, input, mask_size):
+    def forwardWithMasking(self, input, mask_size, batch_num = 1):
       from train_all import opt, center
       d = math.floor(mask_size/2)
       fake_start_image = torch.clone(input) #cp ←cpu
 
-      for i in range(0, opt.batchSize):#中心中心
+      for i in range(0, batch_num):#中心中心
         fake_start_image[i][0] = torch.mean(input[i][0])
         fake_start_image[i][1] = torch.mean(input[i][1])
         fake_start_image[i][2] = torch.mean(input[i][2])

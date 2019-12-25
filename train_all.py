@@ -19,14 +19,21 @@ from   torch.utils.data       import DataLoader
 from   networks               import define_G, GANLoss, print_network, define_D_Edge,define_D_Global,define_D_Local,define_Concat,edge_detection
 from   data                   import get_training_set, get_test_set
 import torch.backends.cudnn as cudnn
-from   util                   import save_img
+from   util                   import save_img, load_img
 from   function import Set_Md, Set_Masks
 from tqdm import tqdm
+
+import torchvision.transforms as transforms
+
 
 
 import random
 import time
 import datetime
+transform_list = [transforms.ToTensor(),
+                  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+
+transform = transforms.Compose(transform_list)
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
@@ -79,10 +86,11 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500#データセットの数
+max_dataset_num = 1500#データセットの数 (8000コ)
+max_test_dataset_num = 300#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
-test_set.image_filenames = test_set.image_filenames[:max_dataset_num]
+test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
 
 print('===> Building model')
 
@@ -200,6 +208,10 @@ def train(epoch,mode=0):
 
   mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
   mask_channel_3d_b = mask_channel_3d_b.cuda()
+
+  mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channel_float),1)
+  mask_channel_3d_f = mask_channel_3d_f.cuda()
+
   #Generatorの学習タスク
   for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
 
@@ -255,7 +267,9 @@ def train(epoch,mode=0):
     #####################################################################
     #Global,LocalDiscriminatorを走らせる
     #####################################################################
-    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1)
+    real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1) #ここ固定マスクじゃない?(12/25)
+
+    #real_a_image_4d = torch.cat((real_a_image,mask_channel_float),1) #ここ固定マスクじゃない?(12/25)
     real_a_image_4d = real_a_image_4d.cuda() 
     mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
 
@@ -270,7 +284,7 @@ def train(epoch,mode=0):
       #12/17optimizerをzero_gradする
       #128*128の窓を作成 (あとで裏に回れるようにする)
       #真画像とマスクの結合..4次元に
-      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc) #ここをnetGの機能にする
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,opt.batchSize) # C(x,Mc) #ここをnetGの機能にする
       
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
       fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
@@ -360,7 +374,7 @@ def train(epoch,mode=0):
     if mode==0 or mode==2:
       
       #optimizerG.zero_grad()
-      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size) # C(x,Mc)
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,opt.batchSize) # C(x,Mc)
       #fake_b_image = real_a_image.clone()
       #fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
@@ -428,7 +442,6 @@ def train(epoch,mode=0):
         loss_plot_array[iteration-1][3] = loss_d
 
 
-
     #####################################################################
     #ログの作成、画像の出力
     #####################################################################
@@ -441,17 +454,43 @@ def train(epoch,mode=0):
         Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}".format(epoch))
         if(flag_edge==True):
           Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}".format(epoch))
-      #print("===> Epoch[{}]({}/{}):		Loss_G: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_g.item()  ))
-      #if(epoch % 10 == 9):
-      #  if(iteration <= 10):#10っ回に1回は10倍サンプルを吐く
-      #    tensor_plot2image(fake_b_image_raw,'fakeC_Raw_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
-      #    tensor_plot2image(fake_b_image,'fakeC_Last_Epoch{}X_{}'.format(iteration,epoch),iteration,mode)
 
       #ロスの出力
       with open(Loss_dir_ + '/loss_log.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerows(loss_plot_array)
 
+
+def test(epoch):
+  center = math.floor(image_size / 2)
+  d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
+  d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+  image_dir = "dataset/{}/test/b/".format(opt.dataset)
+      #####################################################################
+    #一定の周期でテストを行う 
+    #####################################################################
+  test_epoch = 10
+  if (epoch == 1 or (epoch % test_epoch) == 0):
+    for image_name in test_set.image_filenames:
+      img = load_img(image_dir + image_name)
+      img = transform(img)
+      input = Variable(img).view(1,-1,256,256)
+      mask = mask_channel_float[0].view(1,-1,256,256)
+
+      real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
+
+      if opt.cuda:
+        real_a_image_4d = real_a_image_4d.cuda()
+
+
+      fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
+      fake_b_raw = fake_b_raw.cpu()
+      fake_b_image = input.clone()
+      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
+      out_img = fake_b_image.data[0]
+      Plot2Image(input,TestRealA_dir_,'/'+image_name)        
+      Plot2Image(out_img,TestFakeB_dir_,'/'+image_name)        
+      Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+image_name)        
 
 
 
@@ -592,7 +631,8 @@ total_epoch = 500
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
-  if(epoch % 5 == 0):
+  test(epoch+1)
+  if(epoch % 5 == 1):
     SaveModel(epoch+1,2)
 
 
