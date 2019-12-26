@@ -102,14 +102,19 @@ disc_input_nc = 4
 disc_outpuc_nc = 1024
 
 #100epoch組
-netG = torch.load("checkpoint/netG_model_epoch_100.pth")
-netD_Global = torch.load("checkpoint/netDg_model_epoch_100.pth")
-netD_Local = torch.load("checkpoint/netDl_model_epoch_100.pth")
+#netG = torch.load("checkpoint/netG_model_epoch_100.pth")
+#netD_Global = torch.load("checkpoint/netDg_model_epoch_100.pth")
+#netD_Local = torch.load("checkpoint/netDl_model_epoch_100.pth")
 
 #401epoch組(Edgeなし)
-#netG = torch.load("checkpoint/netG_model_epoch_401.pth")
-#netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
-#netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
+netG = torch.load("checkpoint/netG_model_epoch_401.pth")
+netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
+netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
+
+#Edge有350組
+#netG = torch.load("checkpoint/netG_252_1225.pth")
+#netD_Global = torch.load("checkpoint/netDg_252_1225.pth")
+#netD_Local = torch.load("checkpoint/netDl_252_1225.pth")
 
 
 #netG = torch.load("checkpoint/testing_modelG1223_49.pth")
@@ -475,7 +480,7 @@ def test(epoch):
       img = load_img(image_dir + image_name)
       img = transform(img)
       input = Variable(img).view(1,-1,256,256)
-      mask = mask_channel_float[0].view(1,-1,256,256)
+      mask = mask_channel_float[0].view(1,-1,256,256) #ここが固定マスクなのは別に問題ではない節
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
@@ -624,19 +629,16 @@ def checkpoint(epoch,mode=0):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 500
-
+total_epoch = 0
+Test = True
 #使用する既存のモデルがある場合はここでloadする
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
-  train(epoch+1,mode=2)#両方
-  test(epoch+1)
+  train(epoch,mode=2)#両方
+  test(epoch)
   if(epoch % 5 == 1):
-    SaveModel(epoch+1,2)
-
-
-
+    SaveModel(epoch,2)
 
 
 for epoch in range(1, gene_only_epoch + 1):
@@ -653,6 +655,9 @@ for epoch in range(1, disc_only_epoch + 1):
   train(epoch,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
   SaveModel(epoch,1)
+
+if Test==True:
+  test(1)
 
 
 
