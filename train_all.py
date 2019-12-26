@@ -488,9 +488,9 @@ def test(epoch):
       fake_b_image = input.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
       out_img = fake_b_image.data[0]
-      Plot2Image(input,TestRealA_dir_,'/'+image_name)        
-      Plot2Image(out_img,TestFakeB_dir_,'/'+image_name)        
-      Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+image_name)        
+      Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name)        
+      Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
+      Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
 
 
 
