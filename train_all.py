@@ -86,8 +86,8 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500#データセットの数 (8000コ)
-max_test_dataset_num = 300#データセットの数 (2000コ)
+max_dataset_num = 150#データセットの数 (8000コ)
+max_test_dataset_num = 30#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -176,21 +176,18 @@ mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
 #Mdの場所のためのシード固定
 seed = random.seed(1297)
 
-#マスク、ラベルテンソルのgpuセット
-#if opt.cuda:
-#  mask_channel_boolen = mask_channel_boolen.cuda()
-#  mask_channel_float = mask_channel_float.cuda()
-#  random_mask_boolen_64 = mask_channel_boolen.cuda() #代入間違ってるけど大丈夫か
-#  random_mask_float_64 = mask_channel_float.cuda()
-#  random_mask_boolen_128 = mask_channel_boolen.cuda()
-#  random_mask_float_128 = mask_channel_float.cuda()
-#  true_label_tensor = true_label_tensor.cuda()
-#  false_label_tensor = false_label_tensor.cuda()
-#  white_channel_float_128 = white_channel_float_128.cuda()
+
 start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 
+mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
+mask_channel_3d_b = mask_channel_3d_b.cuda()
+mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channel_float),1)
+mask_channel_3d_f = mask_channel_3d_f.cuda()
 
+
+#エポックごとに出力していく
+result_list = []
 
 def train(epoch,mode=0):
 
@@ -204,6 +201,8 @@ def train(epoch,mode=0):
   epoch_start_time = time.time()
   #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
   loss_plot_array = np.empty((int(max_dataset_num / opt.batchSize),4))
+
+  result_list.append(str(epoch))
   #0..OnlyGenerator
   #1..OnlyDiscriminator
   #2..Both 
@@ -211,11 +210,6 @@ def train(epoch,mode=0):
   flag_local  = True
   flag_edge   = True
 
-  mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
-  mask_channel_3d_b = mask_channel_3d_b.cuda()
-
-  mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channel_float),1)
-  mask_channel_3d_f = mask_channel_3d_f.cuda()
 
   #Generatorの学習タスク
   for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
@@ -234,11 +228,6 @@ def train(epoch,mode=0):
     random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
     random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool)
 
-    #if opt.cuda:
-    #  random_mask_float_64 =  random_mask_float_64.cuda()
-    #  random_mask_boolen_64 = random_mask_boolen_64.cuda()
-    #  random_mask_float_128 = random_mask_float_128.cuda()
-    #  random_mask_boolen_128 = random_mask_boolen_128.cuda()  
 
     #####################################################################
     #イメージテンソルの定義
@@ -249,25 +238,6 @@ def train(epoch,mode=0):
     #####################################################################
     #先ずGeneratorを起動して補完モデルを行う
     #####################################################################
-    #fake_start_imageは単一画像中の平均画素で埋められている
-
-
-    #fake_start_image = torch.clone(real_a_image) #cp ←cpu
-
-    #for i in range(0, opt.batchSize):#中心中心
-    #  fake_start_image[i][0] = torch.mean(real_a_image[i][0])
-    #  fake_start_image[i][1] = torch.mean(real_a_image[i][1])
-    #  fake_start_image[i][2] = torch.mean(real_a_image[i][2])
-
-    #fake_start_image2を穴のサイズにトリムしたもの
-    #fake_start_image2 = fake_start_image[:][:][0:hall_size][0:hall_size]
-    #fake_start_image2.resize_(opt.batchSize,opt.input_nc,hall_size,hall_size)
-
-    #12/10real_b_imageはreal_aの穴に平均画素を詰めたもの
-    #center = math.floor(image_size / 2)
-    #d = math.floor(Local_Window / 4) #4(窓サイズの1/4)
-    #real_b_image = real_a_image.clone()    
-    #real_b_image[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
     #####################################################################
     #Global,LocalDiscriminatorを走らせる
@@ -278,9 +248,6 @@ def train(epoch,mode=0):
     real_a_image_4d = real_a_image_4d.cuda() 
     mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
 
-
-    #real_b_image_4d = torch.cat((real_b_image,mask_channel_float),1)#これはreal_aから作れないか？
-    #real_b_image_4d = real_b_image_4d.cuda()
 
     #1stDiscriminator
     if mode==1 or mode==2:
@@ -347,9 +314,6 @@ def train(epoch,mode=0):
         loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
         loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
 
-      #loss_d_realG_Local = criterionBCE(pred_realD_Local, true_label_tensor)
-      #loss_d_fakeG_Local = criterionBCE(pred_fakeD_Local, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-
     #2つのロスの足し合わせ
       if mode == 1:
         loss_d = loss_d_realD + loss_d_fakeD 
@@ -360,6 +324,9 @@ def train(epoch,mode=0):
           loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
       loss_d.backward()
+      if(iteration == 1):
+        result_list.append('{:.4g}'.format(loss_d))
+
 
     #optimizerの更新
       if flag_global: 
@@ -424,6 +391,10 @@ def train(epoch,mode=0):
       reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
+      #最初のiterなら記録する (4桁)
+      if(iteration == 1):
+        result_list.append('{:.4g}'.format(reconstruct_error))
+
       if mode == 2:
         loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) 
         loss_g += loss_d_fakeD
@@ -437,6 +408,7 @@ def train(epoch,mode=0):
       #plotようにreal_aを貼り付けたもの
       fake_b_image = real_a_image.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
+
 
       loss_plot_array[iteration-1][0] = epoch
       loss_plot_array[iteration-1][1] = iteration
@@ -465,8 +437,8 @@ def train(epoch,mode=0):
         writer = csv.writer(f)
         writer.writerows(loss_plot_array)
 
-
 def test(epoch):
+
   center = math.floor(image_size / 2)
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
   d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
@@ -476,6 +448,7 @@ def test(epoch):
     #####################################################################
   test_epoch = 10
   if (epoch == 1 or (epoch % test_epoch) == 0):
+    iteration = 1
     for image_name in test_set.image_filenames:
       img = load_img(image_dir + image_name)
       img = transform(img)
@@ -489,13 +462,28 @@ def test(epoch):
 
 
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
-      fake_b_raw = fake_b_raw.cpu()
+      #fake_b_raw = fake_b_raw
       fake_b_image = input.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
+      #テストエラーを作成する
+      if(iteration == 1):
+        reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
+      #fake_D_predを用いたエラー
+        test_loss_g = reconstruct_error
+        result_list.append('{:.4g}'.format(reconstruct_error))
+      fake_b_image = fake_b_image.cpu()
+
+
       out_img = fake_b_image.data[0]
+
+
       Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name)        
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
+      iteration = iteration + 1
+      #
+
+
 
 
 
@@ -629,9 +617,25 @@ def checkpoint(epoch,mode=0):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 0
-Test = True
+total_epoch = 10
+Test = False
 #使用する既存のモデルがある場合はここでloadする
+
+def PlotError():
+  with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
+    #writer = csv.writer(f)
+    #string = ''
+    #f.write('')
+    result_str = ",".join(map(str,result_list)) #カンマ区切りに直す
+    f.write(result_str + '\n')
+    #リストの中を取り出す
+    #for s in result_list:
+    #  string += str(s)
+    #  string += ','
+    #writer.writerows(string)
+  #リストを空にする
+  result_list.clear()
+
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
@@ -639,6 +643,8 @@ for epoch in range(total_epoch):
   test(epoch)
   if(epoch % 5 == 1):
     SaveModel(epoch,2)
+
+  PlotError()
 
 
 for epoch in range(1, gene_only_epoch + 1):
