@@ -210,7 +210,8 @@ def train(epoch,mode=0):
   flag_local  = True
   flag_edge   = True
 
-
+  loss_g_avg = 0
+  loss_d_avg = 0
   #Generatorの学習タスク
   for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
 
@@ -324,8 +325,6 @@ def train(epoch,mode=0):
           loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
       loss_d.backward()
-      if(iteration == 1):
-        result_list.append('{:.4g}'.format(loss_d))
 
 
     #optimizerの更新
@@ -392,8 +391,6 @@ def train(epoch,mode=0):
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
       #最初のiterなら記録する (4桁)
-      if(iteration == 1):
-        result_list.append('{:.4g}'.format(reconstruct_error))
 
       if mode == 2:
         loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) 
@@ -417,6 +414,19 @@ def train(epoch,mode=0):
         loss_plot_array[iteration-1][2] = loss_g
       if mode == 1:
         loss_plot_array[iteration-1][3] = loss_d
+
+
+      loss_g_avg += loss_g
+      loss_d_avg += loss_d
+      #最後のiterならログを記録する
+
+      if(iteration ==  (max_dataset_num / opt.batchSize) ):
+        loss_g_avg = loss_g_avg / iteration
+        loss_d_avg = loss_d_avg / iteration
+        result_list.append('{:.4g}'.format(loss_g_avg))
+        result_list.append('{:.4g}'.format(loss_d_avg))
+        loss_d_avg = 0
+        loss_g_avg = 0
 
 
     #####################################################################
@@ -466,11 +476,14 @@ def test(epoch):
       fake_b_image = input.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
       #テストエラーを作成する
+
       if(iteration == 1):
+        #Discriminatorも回す
+        pred = 
+
         reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
         test_loss_g = reconstruct_error
-        result_list.append('{:.4g}'.format(reconstruct_error))
       fake_b_image = fake_b_image.cpu()
 
 
@@ -481,6 +494,12 @@ def test(epoch):
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
       iteration = iteration + 1
+
+      #ロスの書き出し
+      if(iteration == 1):
+
+        result_list.append('{:.4g}'.format(reconstruct_error))
+
       #
 
 
@@ -621,6 +640,8 @@ total_epoch = 10
 Test = False
 #使用する既存のモデルがある場合はここでloadする
 
+
+
 def PlotError():
   with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
     #writer = csv.writer(f)
@@ -636,6 +657,13 @@ def PlotError():
   #リストを空にする
   result_list.clear()
 
+
+result_list.append("Epoch[/n]")
+result_list.append("Train_Loss_G")
+result_list.append("Train_Loss_D")
+result_list.append("Test_Loss_G")
+result_list.append("Test_Loss_D")
+PlotError()
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
