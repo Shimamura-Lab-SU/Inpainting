@@ -83,7 +83,7 @@ print('===> Loading datasets')
 root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
-training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
+training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = 8000#データセットの数 (8000コ)
