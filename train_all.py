@@ -86,8 +86,8 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 150#データセットの数 (8000コ)
-max_test_dataset_num = 30#データセットの数 (2000コ)
+max_dataset_num = 1500#データセットの数 (8000コ)
+max_test_dataset_num = 300#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -168,8 +168,8 @@ real_a_image = torch.FloatTensor(opt.batchSize, opt.output_nc, 256, 256)
 
 white_channel_float_128 = torch.full((opt.batchSize,1,128,128), True)
 ##Mc(inputMask)の定義
-mask_channel_float = Set_Masks(image_size,center,center,hall_size) #古い宣言
-mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
+mask_channel_float = Set_Masks(image_size,center,center,hall_size,batchSize=opt.batchSize) #古い宣言
+mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool,batchSize=opt.batchSize)
 ##Md(RandomMask)の定義
 
 
@@ -195,8 +195,8 @@ def train(epoch,mode=0):
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
   d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
-  mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool)
-  mask_channel_float = Set_Masks(image_size,center,center,hall_size)
+  mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool,batchSize=opt.batchSize)
+  mask_channel_float = Set_Masks(image_size,center,center,hall_size,batchSize=opt.batchSize)
 
   epoch_start_time = time.time()
   #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
@@ -224,10 +224,10 @@ def train(epoch,mode=0):
     Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
     
-    random_mask_float_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,torch.float32)
-    random_mask_boolen_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,bool)
-    random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32)
-    random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool)
+    random_mask_float_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,torch.float32,batchSize=opt.batchSize)
+    random_mask_boolen_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,bool,batchSize=opt.batchSize)
+    random_mask_float_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,torch.float32,batchSize=opt.batchSize)
+    random_mask_boolen_128 = Set_Masks(image_size,Mdpos_x,Mdpos_y,Local_Window,bool,batchSize=opt.batchSize)
 
 
     #####################################################################
@@ -267,13 +267,13 @@ def train(epoch,mode=0):
         pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_local:
-        pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
-        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
+        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
       if flag_edge:
         #real_a_image_edge.datach
-        pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window)
+        pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
         #real_a_image_edge.datach #エッジ処理はネットワーク内でさせる
-        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇〇(残りのパターンは省略)
@@ -356,9 +356,9 @@ def train(epoch,mode=0):
         if flag_global: 
           pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         if flag_local:
-          pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+          pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
         if flag_edge:
-          pred_fakeD_Edge = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+          pred_fakeD_Edge = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
           
         #pred_fakeは偽生成画像を入力としたときの尤度テンソル
         #〇〇〇
@@ -456,7 +456,7 @@ def test(epoch):
       #####################################################################
     #一定の周期でテストを行う 
     #####################################################################
-  test_epoch = 10
+  test_epoch = 1 #毎エポック
   if (epoch == 1 or (epoch % test_epoch) == 0):
     iteration = 1
     for image_name in test_set.image_filenames:
@@ -477,13 +477,10 @@ def test(epoch):
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
       #テストエラーを作成する
 
-      if(iteration == 1):
-        #Discriminatorも回す
-        pred = 
 
-        reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
+      reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
-        test_loss_g = reconstruct_error
+      test_loss_g = reconstruct_error
       fake_b_image = fake_b_image.cpu()
 
 
@@ -493,12 +490,12 @@ def test(epoch):
       Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name)        
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
-      iteration = iteration + 1
 
       #ロスの書き出し
       if(iteration == 1):
 
         result_list.append('{:.4g}'.format(reconstruct_error))
+      iteration = iteration + 1
 
       #
 
@@ -637,7 +634,7 @@ def checkpoint(epoch,mode=0):
 gene_only_epoch = 0
 disc_only_epoch = 0
 total_epoch = 10
-Test = False
+#Test = False
 #使用する既存のモデルがある場合はここでloadする
 
 
@@ -669,8 +666,8 @@ for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch,mode=2)#両方
   test(epoch)
-  if(epoch % 5 == 1):
-    SaveModel(epoch,2)
+  #if(epoch % 5 == 1):
+    #SaveModel(epoch,2)
 
   PlotError()
 
@@ -690,8 +687,8 @@ for epoch in range(1, disc_only_epoch + 1):
 #  checkpoint(epoch,1)
   SaveModel(epoch,1)
 
-if Test==True:
-  test(1)
+#if Test==True:
+  #test(1)
 
 
 
