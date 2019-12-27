@@ -86,7 +86,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 8000#データセットの数 (8000コ)
+max_dataset_num = 7500#データセットの数 (8000コ)
 max_test_dataset_num = 300#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
@@ -666,8 +666,8 @@ for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch,mode=2)#両方
   test(epoch)
-  #if(epoch % 5 == 1):
-    #SaveModel(epoch,2)
+  if(epoch % 5 == 1):
+    SaveModel(epoch,2)
 
   PlotError()
 
