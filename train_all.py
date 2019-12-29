@@ -45,7 +45,7 @@ parser.add_argument('--input_nc', type=int, default=3, help='input image channel
 parser.add_argument('--output_nc', type=int, default=3, help='output image channels')
 parser.add_argument('--ngf', type=int, default=64, help='generator filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='discriminator filters in first conv layer')
-parser.add_argument('--lr', type=float, default=1, help='Learning Rate. Default=0.002') #1に変更'(0.0004)
+parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Default=0.002') #1に変更'(0.0004)
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', help='use cuda?')
 parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
@@ -107,24 +107,24 @@ disc_outpuc_nc = 1024
 #netD_Local = torch.load("checkpoint/netDl_model_epoch_100.pth")
 
 #401epoch組(Edgeなし)
-netG = torch.load("checkpoint/netG_model_epoch_401.pth")
-netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
-netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
+#netG = torch.load("checkpoint/netG_model_epoch_401.pth")
+#netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
+#netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
 
 #Edge有350組
-#netG = torch.load("checkpoint/netG_252_1225.pth")
-#netD_Global = torch.load("checkpoint/netDg_252_1225.pth")
-#netD_Local = torch.load("checkpoint/netDl_252_1225.pth")
+netD_Edge = torch.load("checkpoint/netDe_1.pth")
+netD_Global = torch.load("checkpoint/netDg_1.pth")
+netD_Local = torch.load("checkpoint/netDl_1.pth")
 
 
-#netG = torch.load("checkpoint/testing_modelG1223_49.pth")
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = torch.load("checkpoint/netG_10_1227.pth")
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
 #netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
 #netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -417,15 +417,19 @@ def train(epoch,mode=0):
 
 
       loss_g_avg += loss_g
-      loss_d_avg += loss_d
+      if(mode == 1 or mode == 2):
+        loss_d_avg += loss_d
       #最後のiterならログを記録する
 
       if(iteration ==  (max_dataset_num / opt.batchSize) ):
         loss_g_avg = loss_g_avg / iteration
-        loss_d_avg = loss_d_avg / iteration
+        if(mode == 1 or mode == 2):
+          loss_d_avg = loss_d_avg / iteration
         result_list.append('{:.4g}'.format(loss_g_avg))
-        result_list.append('{:.4g}'.format(loss_d_avg))
-        loss_d_avg = 0
+        if(mode == 1 or mode == 2):
+          result_list.append('{:.4g}'.format(loss_d_avg))
+        if(mode == 1 or mode == 2):
+          loss_d_avg = 0
         loss_g_avg = 0
 
 
@@ -633,7 +637,7 @@ def checkpoint(epoch,mode=0):
 
 gene_only_epoch = 0
 disc_only_epoch = 0
-total_epoch = 500
+total_epoch = 100
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
@@ -676,8 +680,10 @@ for epoch in range(1, gene_only_epoch + 1):
 #discriminatorのtrain
 
   train(epoch,mode=0)#Discriminatorのみ
+  test(epoch)
   SaveModel(epoch,0)
 
+  PlotError()
 
 
 for epoch in range(1, disc_only_epoch + 1):
@@ -687,6 +693,7 @@ for epoch in range(1, disc_only_epoch + 1):
 #  checkpoint(epoch,1)
   SaveModel(epoch,1)
 
+  PlotError()
 #if Test==True:
   #test(1)
 
