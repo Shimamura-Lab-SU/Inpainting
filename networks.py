@@ -189,11 +189,17 @@ class ResnetGenerator(nn.Module):
 
         self.model = nn.Sequential(*model)
 
+
     def forward(self, input):
+      tensor_b = input.cuda()
       if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        tensor_b = nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
       else:
-        return self.model(input)
+        tensor_b = self.model(tensor_b)
+      
+      tensor_b = tensor_b.cpu()
+      return tensor_b
+      
     
     def forwardWithMasking(self, input, mask_size, batch_num = 1, image_size = 256):
       center = math.floor(image_size / 2)
@@ -213,10 +219,14 @@ class ResnetGenerator(nn.Module):
       tensor_b = input.clone()    
       tensor_b[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
+      tensor_b = tensor_b.cuda()
+
       if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
+        tensor_b = nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
       else:
-        return self.model(tensor_b)
+        tensor_b = self.model(tensor_b)
+      tensor_b = tensor_b.cpu()
+      return tensor_b
 
 
 
@@ -250,20 +260,25 @@ class Global_Discriminator(nn.Module):
       self.mocel_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
+    
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
+      out = input.cuda()
+      out = nn.parallel.data_parallel(self.model_conv, out, self.gpu_ids)
       #Viewで中間層から形状を変える
       #サイズを知りたい
       #size = out.size()
 
       out = out.view(out.size(0),-1) 
       out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
-      return out      
+      out = out.cpu()
+      return out
     else:
-      out = self.model_conv(input)
+      out = input.cuda()
+      out = self.model_conv(out)
       #Flatten
       out = out.view(out.size(0),-1)
       out = self.model_dence(out) 
+      out = out.cpu()
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合

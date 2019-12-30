@@ -76,8 +76,8 @@ if opt.cuda and not torch.cuda.is_available():
 cudnn.benchmark = True
 
 torch.manual_seed(opt.seed)
-if opt.cuda:
-  torch.cuda.manual_seed(opt.seed)
+#if opt.cuda:
+#  torch.cuda.manual_seed(opt.seed)
 
 print('===> Loading datasets')
 root_path            = "dataset/"
@@ -151,7 +151,7 @@ if opt.cuda:
   netD_Global = netD_Global.cuda()
   netD_Local  = netD_Local.cuda()
   netD_Edge   = netD_Edge.cuda()
-  netG = netG.cuda()
+  netG = netG.cuda()#
   net_Concat = net_Concat.cuda()
   net_Concat1 = net_Concat1.cuda()
   #
@@ -181,9 +181,9 @@ start_date = datetime.date.today()
 start_time = datetime.datetime.now()
 
 mask_channel_3d_b = torch.cat((mask_channel_boolen,mask_channel_boolen,mask_channel_boolen),1)
-mask_channel_3d_b = mask_channel_3d_b.cuda()
+#mask_channel_3d_b = mask_channel_3d_b.cuda()
 mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channel_float),1)
-mask_channel_3d_f = mask_channel_3d_f.cuda()
+#mask_channel_3d_f = mask_channel_3d_f.cuda()
 
 
 #エポックごとに出力していく
@@ -246,8 +246,8 @@ def train(epoch,mode=0):
     real_a_image_4d = torch.cat((real_a_image,random_mask_float_64),1) #ここ固定マスクじゃない?(12/25)
 
     #real_a_image_4d = torch.cat((real_a_image,mask_channel_float),1) #ここ固定マスクじゃない?(12/25)
-    real_a_image_4d = real_a_image_4d.cuda() 
-    mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
+    #real_a_image_4d = real_a_image_4d.cuda() 
+    #mask_channel_float = mask_channel_float.cuda()#どうしても必要なためcudaに入れる
 
 
     #1stDiscriminator
@@ -260,11 +260,11 @@ def train(epoch,mode=0):
       fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,opt.batchSize) # C(x,Mc) #ここをnetGの機能にする
       
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
-      fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
+      #fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
 
 
       if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_local:
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
@@ -303,8 +303,8 @@ def train(epoch,mode=0):
       true_label_tensor = Variable(torch.LongTensor())
       true_label_tensor  = torch.ones(opt.batchSize,1)
 
-      true_label_tensor = true_label_tensor.cuda()
-      false_label_tensor = false_label_tensor.cuda()
+      #true_label_tensor = true_label_tensor.cuda()
+      #false_label_tensor = false_label_tensor.cuda()
       #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
@@ -349,7 +349,7 @@ def train(epoch,mode=0):
       #fake_b_image = real_a_image.clone()
       #fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
-      fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
+      #fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
 
       #2ndDiscriminator
       if mode == 2:
@@ -432,7 +432,6 @@ def train(epoch,mode=0):
           loss_d_avg = 0
         loss_g_avg = 0
 
-
     #####################################################################
     #ログの作成、画像の出力
     #####################################################################
@@ -451,6 +450,9 @@ def train(epoch,mode=0):
         writer = csv.writer(f)
         writer.writerows(loss_plot_array)
 
+
+
+#テスト側
 def test(epoch):
 
   center = math.floor(image_size / 2)
@@ -471,8 +473,8 @@ def test(epoch):
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
-      if opt.cuda:
-        real_a_image_4d = real_a_image_4d.cuda()
+      #if opt.cuda:
+      #  real_a_image_4d = real_a_image_4d.cuda()
 
 
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
@@ -665,6 +667,8 @@ result_list.append("Train_Loss_D")
 result_list.append("Test_Loss_G")
 result_list.append("Test_Loss_D")
 PlotError()
+
+
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
