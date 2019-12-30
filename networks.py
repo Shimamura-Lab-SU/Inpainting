@@ -243,6 +243,7 @@ class Global_Discriminator(nn.Module):
       #1
 
 
+
       model_conv = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
       model_conv += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
@@ -253,27 +254,27 @@ class Global_Discriminator(nn.Module):
       model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
       model_conv += [nn.Conv2d(ndf * 8, ndf * 8, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
 
-
       model_dence = [nn.Linear(ndf * 8 * 4 * 4, output_nc)]
       model_dence += [nn.Sigmoid()] #sigmoidを入れるとBCELOSSを通れるようになるため
+
       self.model_conv = nn.Sequential(*model_conv)
-      self.mocel_dence =  nn.Sequential(*model_dence)
+      self.model_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
-    
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-      out = input.cuda()
+    out = input.cuda()
+    if self.gpu_ids and isinstance(out.data, torch.cuda.FloatTensor):
+      #out = input.cuda()
       out = nn.parallel.data_parallel(self.model_conv, out, self.gpu_ids)
       #Viewで中間層から形状を変える
       #サイズを知りたい
       #size = out.size()
 
       out = out.view(out.size(0),-1) 
-      out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
+      out = nn.parallel.data_parallel(self.model_dence, out, self.gpu_ids) # 全結合層
       out = out.cpu()
       return out
     else:
-      out = input.cuda()
+      #out = input.cuda()
       out = self.model_conv(out)
       #Flatten
       out = out.view(out.size(0),-1)
@@ -290,8 +291,8 @@ class Global_Discriminator(nn.Module):
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     tensor_b = _input_real.clone()
     tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
-
-    return self.forward(tensor_b)
+    tensor_b = self.forward(tensor_b)
+    return tensor_b
 
   def forwardWithTrim(self, input, _xpos = 0, _ypos = 0, trim_size = 0,batchSize = -1):
     #トリムを行う
@@ -336,19 +337,24 @@ class Concatenation(nn.Module):
     #catで入寮同士をつなぐ
     input = torch.cat((_global_input,_local_input),1)
     input = input.view(-1,2048)
+    input = input.cuda()
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        input = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
-        return self.model(input)
+        input = self.model(input)
+    return input.cpu()
   
   def forward1(self, input):
     #catで入寮同士をつなぐ
     #input = torch.cat((_global_input,_local_input,_edge_input),1)
     #input = input.view(-1,3072)
+    input = input.cuda()
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        input = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
     else:
-        return self.model(input)
+        input = self.model(input)
+    return input.cpu()
+
 
 #LocalDiscriminator
 class Local_Discriminator(nn.Module):
@@ -374,20 +380,23 @@ class Local_Discriminator(nn.Module):
       model_dence = [nn.Linear(ndf * 8 * 4 * 4 , output_nc)]
       model_dence += [nn.Sigmoid()]
       self.model_conv = nn.Sequential(*model_conv)
-      self.mocel_dence =  nn.Sequential(*model_dence)
+      self.model_dence =  nn.Sequential(*model_dence)
 
   def forward(self, input):
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
+    out = input.cuda()
+    if self.gpu_ids and isinstance(out.data, torch.cuda.FloatTensor):
+      out = nn.parallel.data_parallel(self.model_conv, out, self.gpu_ids)
       #Viewで中間層から形状を変える
       out = out.view(out.size(0),-1) 
-      out = nn.parallel.data_parallel(self.mocel_dence, out, self.gpu_ids) # 全結合層
+      out = nn.parallel.data_parallel(self.model_dence, out, self.gpu_ids) # 全結合層
+      out = out.cpu()
       return out      
     else:
-      out = self.model_conv(input)
+      out = self.model_conv(out)
       #Flatten
       out = out.view(out.size(0),-1)
       out = self.model_dence(out) 
+      out = out.cpu()
       return out
 
   def check_cnn_size(self, size_check ):
@@ -466,22 +475,25 @@ class Edge_Discriminator(nn.Module):
 
   def forward(self, input):
     #入ってきたTensorをエッジ変換する
-    input_edge = edge_detection(input[:,0:3,:,:])
+    input_edge = edge_detection(input[:,0:3,:,:],is_gpu=False)
     #2dはGray+Maskの2channel
     input_mask = input[:,3:4,:,:]
     input_2d = torch.cat((input_edge,input_mask),1)
+    input = input.cuda()
 
     if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
       out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
       #Viewで中間層から形状を変える
       out = out.view(out.size(0),-1) 
       out = nn.parallel.data_parallel(self.model_dence, out, self.gpu_ids) # 全結合層
+      out = out.cpu()
       return out      
     else:
       out = self.model_conv(input)
       #Flatten
       out = out.view(out.size(0),-1)
       out = self.model_dence(out) 
+      out = out.cpu()
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合

@@ -112,19 +112,19 @@ disc_outpuc_nc = 1024
 #netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
 
 #Edge有350組
-netD_Edge = torch.load("checkpoint/netDe_1.pth")
-netD_Global = torch.load("checkpoint/netDg_1.pth")
-netD_Local = torch.load("checkpoint/netDl_1.pth")
+#netD_Edge = torch.load("checkpoint/netDe_1.pth")
+#netD_Global = torch.load("checkpoint/netDg_1.pth")
+#netD_Local = torch.load("checkpoint/netDl_1.pth")
 
 
-netG = torch.load("checkpoint/netG_10_1227.pth")
+#netG = torch.load("checkpoint/netG_10_1227.pth")
 netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
 #netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
-#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -263,12 +263,12 @@ def train(epoch,mode=0):
       #fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
 
 
-      if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
-        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_local:
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
         pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+      if flag_global:
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_edge:
         #real_a_image_edge.datach
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
