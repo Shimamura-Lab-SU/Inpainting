@@ -86,8 +86,8 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 7500#データセットの数 (8000コ)
-max_test_dataset_num = 300#データセットの数 (2000コ)
+max_dataset_num = 100#データセットの数 (8000コ)
+max_test_dataset_num = 20#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -270,9 +270,7 @@ def train(epoch,mode=0):
         pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_edge:
-        #real_a_image_edge.datach
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
-        #real_a_image_edge.datach #エッジ処理はネットワーク内でさせる
         pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
@@ -454,6 +452,13 @@ def train(epoch,mode=0):
 
 #テスト側
 def test(epoch):
+  loss_g_avg = 0
+  loss_d_avg = 0
+
+  flag_local = True
+  flag_edge = True
+  flag_global = True
+  mode = 2 #いったんここで定義
 
   center = math.floor(image_size / 2)
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
@@ -473,23 +478,80 @@ def test(epoch):
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
-      #if opt.cuda:
-      #  real_a_image_4d = real_a_image_4d.cuda()
-
-
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
       #fake_b_raw = fake_b_raw
       fake_b_image = input.clone()
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
       #テストエラーを作成する
 
-
+      fake_b_image_raw_4d = torch.cat((fake_b_raw,mask),1) #catはメインループ内で許可
+      
       reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
-      test_loss_g = reconstruct_error
+      Mdpos_x= center
+      Mdpos_y = center#12/31 テストのマスクは固定で中央にしてみる
+
+      if flag_local:
+        pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
+        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+      if flag_global:
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
+      if flag_edge:
+        pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
+        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+
+      if (flag_global == True) and (flag_local == True) and (flag_edge == True):
+        #Concatを使って繋げる
+        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+      #〇〇
+      if (flag_global == True) and (flag_local == True) and (flag_edge == False):
+        #Concatを使って繋げる
+        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+
+      #〇×
+      if (flag_global == True) and (flag_local == False):
+        pred_realD = pred_realD_Global
+        pred_fakeD = pred_fakeD_Global
+      #×〇
+      if (flag_global == False) and (flag_local == True):
+        pred_realD = pred_realD_Global
+        pred_fakeD = pred_fakeD_Global
+
+      false_label_tensor = Variable(torch.LongTensor())
+      false_label_tensor  = torch.zeros(1,1)
+      true_label_tensor = Variable(torch.LongTensor())
+      true_label_tensor  = torch.ones(1,1)
+
+      loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
+      loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+      
+      if (flag_edge == True):
+        pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
+        pred_realD_Edge = net_Concat1.forward1(pred_realD_Edge)
+        loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
+        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
+
+    #2つのロスの足し合わせ
+      loss_d = 0
+      if mode == 1:
+        loss_d = loss_d_realD + loss_d_fakeD 
+      if mode == 2:
+        if (flag_edge == True):
+          loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
+        else:
+          loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
+    #backward
+
+      #最終的なロスの導出
+      test_loss_g = reconstruct_error + loss_d_fakeD
+      if (flag_edge == True):
+        test_loss_g += loss_d_fakeD_Edge 
+      test_loss_d = loss_d
+
       fake_b_image = fake_b_image.cpu()
-
-
       out_img = fake_b_image.data[0]
 
 
@@ -497,19 +559,23 @@ def test(epoch):
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
 
-      #ロスの書き出し
-      if(iteration == 1):
+      loss_g_avg += test_loss_g
+      if(mode == 1 or mode == 2):
+        loss_d_avg += test_loss_d
+      #ロスの平均の導出
+      if(iteration ==  (max_test_dataset_num)):
+        loss_g_avg = loss_g_avg / iteration
+        if(mode == 1 or mode == 2):
+          loss_d_avg = loss_d_avg / iteration
+        result_list.append('{:.4g}'.format(loss_g_avg))
+        if(mode == 1 or mode == 2):
+          result_list.append('{:.4g}'.format(loss_d_avg))
+        if(mode == 1 or mode == 2):
+          loss_d_avg = 0
+        loss_g_avg = 0
 
-        result_list.append('{:.4g}'.format(reconstruct_error))
+
       iteration = iteration + 1
-
-      #
-
-
-
-
-
-
 
 #リザルト関連の処理
 result_dir = 'Results' 
