@@ -87,7 +87,7 @@ training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, ba
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = 100#データセットの数 (8000コ)
-max_test_dataset_num = 20#データセットの数 (2000コ)
+max_test_dataset_num = 5#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -468,19 +468,23 @@ def test(epoch):
     #一定の周期でテストを行う 
     #####################################################################
   test_epoch = 1 #毎エポック
+
+  fake_b_image = torch.Tensor(1,3,image_size,image_size)
   if (epoch == 1 or (epoch % test_epoch) == 0):
     iteration = 1
     for image_name in test_set.image_filenames:
       img = load_img(image_dir + image_name)
       img = transform(img)
       input = Variable(img).view(1,-1,256,256)
+      #元イメージは壊す前に出力しておく
+      Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name) 
       mask = mask_channel_float[0].view(1,-1,256,256) #ここが固定マスクなのは別に問題ではない節
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
       #fake_b_raw = fake_b_raw
-      fake_b_image = input.clone()
+      fake_b_image.data = input.data#元イメージを置き換える
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
       #テストエラーを作成する
 
@@ -488,7 +492,7 @@ def test(epoch):
       
       reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
-      Mdpos_x= center
+      Mdpos_x = center
       Mdpos_y = center#12/31 テストのマスクは固定で中央にしてみる
 
       if flag_local:
@@ -525,6 +529,7 @@ def test(epoch):
       true_label_tensor = Variable(torch.LongTensor())
       true_label_tensor  = torch.ones(1,1)
 
+
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
       
@@ -555,7 +560,7 @@ def test(epoch):
       out_img = fake_b_image.data[0]
 
 
-      Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name)        
+      #生成の結果のプロット       
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
 
