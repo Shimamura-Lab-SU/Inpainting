@@ -87,7 +87,7 @@ training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, ba
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = 100#データセットの数 (8000コ)
-max_test_dataset_num = 5#データセットの数 (2000コ)
+max_test_dataset_num = 100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -483,9 +483,10 @@ def test(epoch):
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
+      fake_b_raw = fake_b_raw.detach()
       #fake_b_raw = fake_b_raw
       fake_b_image.data = input.data#元イメージを置き換える
-      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d] 
+      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d]
       #テストエラーを作成する
 
       fake_b_image_raw_4d = torch.cat((fake_b_raw,mask),1) #catはメインループ内で許可

@@ -219,14 +219,8 @@ class ResnetGenerator(nn.Module):
       tensor_b = input.clone()    
       tensor_b[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
 
-      tensor_b = tensor_b.cuda()
+      return(self.forward(tensor_b))
 
-      if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-        tensor_b = nn.parallel.data_parallel(self.model, tensor_b, self.gpu_ids)
-      else:
-        tensor_b = self.model(tensor_b)
-      tensor_b = tensor_b.cpu()
-      return tensor_b
 
 
 
