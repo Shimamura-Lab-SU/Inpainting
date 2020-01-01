@@ -36,7 +36,7 @@ transform_list = [transforms.ToTensor(),
 
 transform = transforms.Compose(transform_list)
 
-writer = SummaryWriter()# SummaryWriterのインスタンス作成[ポイント2]
+writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
