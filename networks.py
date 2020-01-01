@@ -236,8 +236,6 @@ class Global_Discriminator(nn.Module):
       self.ndf =ndf
       #1
 
-
-
       model_conv = [nn.Conv2d(input_nc, ndf, kernel_size=5, stride=2, padding=2,dilation=1),nn.ReLU(True)]
       #conv2
       model_conv += [nn.Conv2d(ndf, ndf * 2, kernel_size=5, stride=2, padding=2,dilation=1), nn.ReLU(True)]
@@ -443,7 +441,7 @@ class Edge_Discriminator(nn.Module):
   def __init__(self, input_nc, output_nc ,ndf= 64,gpu_ids=[] ):
       super(Edge_Discriminator, self).__init__()
       self.gpu_ids = gpu_ids
-      self.input_nc = input_nc
+      self.input_nc = 2 #決め打ち
       self.output_nc = output_nc
       self.ndf = ndf
 
@@ -473,17 +471,17 @@ class Edge_Discriminator(nn.Module):
     #2dはGray+Maskの2channel
     input_mask = input[:,3:4,:,:]
     input_2d = torch.cat((input_edge,input_mask),1)
-    input = input.cuda()
+    input_2d = input_2d.cuda()
 
-    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-      out = nn.parallel.data_parallel(self.model_conv, input, self.gpu_ids)
+    if self.gpu_ids and isinstance(input_2d.data, torch.cuda.FloatTensor):
+      out = nn.parallel.data_parallel(self.model_conv, input_2d, self.gpu_ids)
       #Viewで中間層から形状を変える
       out = out.view(out.size(0),-1) 
       out = nn.parallel.data_parallel(self.model_dence, out, self.gpu_ids) # 全結合層
       out = out.cpu()
       return out      
     else:
-      out = self.model_conv(input)
+      out = self.model_conv(input_2d)
       #Flatten
       out = out.view(out.size(0),-1)
       out = self.model_dence(out) 

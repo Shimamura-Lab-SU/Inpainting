@@ -36,7 +36,7 @@ transform_list = [transforms.ToTensor(),
 
 transform = transforms.Compose(transform_list)
 
-writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
+#writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
@@ -127,7 +127,7 @@ netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
 netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
 netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Edge     = define_D_Edge(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
