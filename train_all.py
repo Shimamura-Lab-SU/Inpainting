@@ -192,6 +192,8 @@ mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channe
 #エポックごとに出力していく
 result_list = []
 
+each_loss_plot_flag = True
+
 def train(epoch,mode=0):
 
   center = math.floor(image_size / 2)
@@ -215,6 +217,14 @@ def train(epoch,mode=0):
 
   loss_g_avg = 0
   loss_d_avg = 0
+  #------------
+  loss_dg_r_avg = 0    #real
+  loss_dl_r_avg = 0
+  loss_de_r_avg = 0
+  loss_dg_f_avg = 0  #fakeの個別Loss
+  loss_dl_f_avg = 0
+  loss_de_f_avg = 0
+
   #Generatorの学習タスク
   for iteration, batch in tqdm(enumerate(training_data_loader, 1)):
 
@@ -423,6 +433,14 @@ def train(epoch,mode=0):
 
 
       loss_g_avg += loss_g
+      loss_d_avg += loss_d
+      loss_dg_r_avg += loss_d_realD_Global
+      loss_dg_f_avg += loss_d_fakeD_Global
+      loss_dl_r_avg += loss_d_realD_Local
+      loss_dl_f_avg += loss_d_fakeD_Local
+      loss_de_r_avg += loss_d_realD_Edge
+      loss_de_f_avg += loss_d_fakeD_Edge
+
       if(mode == 1 or mode == 2):
         loss_d_avg += loss_d
       #最後のiterならログを記録する
@@ -436,6 +454,31 @@ def train(epoch,mode=0):
         if(mode == 1 or mode == 2):
           loss_d_avg = 0
         loss_g_avg = 0
+        #フラグが有効なら個別のロスを記録する
+        if(each_loss_plot_flag):
+          loss_dg_r_avg = loss_dg_r_avg / iteration 
+          loss_dg_f_avg = loss_dg_f_avg / iteration 
+          loss_dl_r_avg = loss_dl_r_avg / iteration
+          loss_dl_f_avg = loss_dl_f_avg / iteration
+          loss_de_r_avg = loss_de_r_avg / iteration 
+          loss_de_f_avg = loss_de_f_avg / iteration 
+
+          result_list.append(('{:.4g}'.format(loss_d_realD_Global))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Local))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Edge))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge))
+        else
+          for i in range(6):
+            result_list.append(0)
+
+      loss_dg_r_avg = 0
+      loss_dg_f_avg = 0
+      loss_dl_r_avg = 0
+      loss_dl_f_avg = 0
+      loss_de_r_avg = 0
+      loss_de_f_avg = 0
 
     #####################################################################
     #ログの作成、画像の出力
@@ -461,6 +504,14 @@ def train(epoch,mode=0):
 def test(epoch):
   loss_g_avg = 0
   loss_d_avg = 0
+
+  loss_dg_r_avg = 0    #real
+  loss_dl_r_avg = 0
+  loss_de_r_avg = 0
+  loss_dg_f_avg = 0  #fakeの個別Loss
+  loss_dl_f_avg = 0
+  loss_de_f_avg = 0
+
 
   flag_local = True
   flag_edge = True
@@ -540,7 +591,15 @@ def test(epoch):
 
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-      
+
+      #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
+      if (flag_global == True):
+        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
+        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
+      if (flag_local == True):
+        loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
+        loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
+
       if (flag_edge == True):
         pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
         pred_realD_Edge = net_Concat1.forward1(pred_realD_Edge)
@@ -572,6 +631,13 @@ def test(epoch):
       Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
       Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
 
+      loss_dg_r_avg += loss_d_realD_Global
+      loss_dg_f_avg += loss_d_fakeD_Global
+      loss_dl_r_avg += loss_d_realD_Local
+      loss_dl_f_avg += loss_d_fakeD_Local
+      loss_de_r_avg += loss_d_realD_Edge
+      loss_de_f_avg += loss_d_fakeD_Edge
+
       loss_g_avg += test_loss_g
       if(mode == 1 or mode == 2):
         loss_d_avg += test_loss_d
@@ -586,7 +652,31 @@ def test(epoch):
         if(mode == 1 or mode == 2):
           loss_d_avg = 0
         loss_g_avg = 0
+        #フラグが有効なら個別のロスを記録する
+        if(each_loss_plot_flag):
+          loss_dg_r_avg = loss_dg_r_avg / iteration 
+          loss_dg_f_avg = loss_dg_f_avg / iteration 
+          loss_dl_r_avg = loss_dl_r_avg / iteration
+          loss_dl_f_avg = loss_dl_f_avg / iteration
+          loss_de_r_avg = loss_de_r_avg / iteration 
+          loss_de_f_avg = loss_de_f_avg / iteration 
 
+          result_list.append(('{:.4g}'.format(loss_d_realD_Global))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Local))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Edge))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge))
+        else
+          for i in range(6):
+            result_list.append(0)
+
+      loss_dg_r_avg = 0
+      loss_dg_f_avg = 0
+      loss_dl_r_avg = 0
+      loss_dl_f_avg = 0
+      loss_de_r_avg = 0
+      loss_de_f_avg = 0
 
       iteration = iteration + 1
 
@@ -739,12 +829,24 @@ def PlotError():
   #リストを空にする
   result_list.clear()
 
-
+#最初のカラムを作成する
 result_list.append("Epoch[/n]")
 result_list.append("Train_Loss_G")
 result_list.append("Train_Loss_D")
+result_list.append("Train_Loss_Dg_R")
+result_list.append("Train_Loss_Dg_F")
+result_list.append("Train_Loss_Dl_R")
+result_list.append("Train_Loss_Dl_F")
+result_list.append("Train_Loss_De_R")
+result_list.append("Train_Loss_De_F")
 result_list.append("Test_Loss_G")
 result_list.append("Test_Loss_D")
+result_list.append("Test_Loss_Dg_R")
+result_list.append("Test_Loss_Dg_F")
+result_list.append("Test_Loss_Dl_R")
+result_list.append("Test_Loss_Dl_F")
+result_list.append("Test_Loss_De_R")
+result_list.append("Test_Loss_De_F")
 PlotError()
 
 
