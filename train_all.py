@@ -25,7 +25,8 @@ from tqdm import tqdm
 
 import torchvision.transforms as transforms
 
-
+#import tensorboard as tbx # tensorboardXのインポート[ポイント1]
+from torch.utils.tensorboard import SummaryWriter
 
 import random
 import time
@@ -34,6 +35,8 @@ transform_list = [transforms.ToTensor(),
                   transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
 
 transform = transforms.Compose(transform_list)
+
+writer = SummaryWriter()# SummaryWriterのインスタンス作成[ポイント2]
 
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
