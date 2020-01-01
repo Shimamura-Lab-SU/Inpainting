@@ -304,17 +304,22 @@ def train(epoch,mode=0):
       true_label_tensor = Variable(torch.LongTensor())
       true_label_tensor  = torch.ones(opt.batchSize,1)
 
-      #true_label_tensor = true_label_tensor.cuda()
-      #false_label_tensor = false_label_tensor.cuda()
-      #loss_d = loss_d_realG_Global + loss_d_fakeG_Local
       loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
       loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
-      
+
+      #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
+      if (flag_global == True):
+        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
+        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
+      if (flag_local == True):
+        loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
+        loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
+
       if (flag_edge == True):
         pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
         pred_realD_Edge = net_Concat1.forward1(pred_realD_Edge)
         loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
-        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
+        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, false_label_tensor)
 
     #2つのロスの足し合わせ
       if mode == 1:
@@ -421,7 +426,6 @@ def train(epoch,mode=0):
       if(mode == 1 or mode == 2):
         loss_d_avg += loss_d
       #最後のiterならログを記録する
-
       if(iteration ==  (max_dataset_num / opt.batchSize) ):
         loss_g_avg = loss_g_avg / iteration
         if(mode == 1 or mode == 2):
