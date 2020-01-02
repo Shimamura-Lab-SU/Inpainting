@@ -319,11 +319,16 @@ def train(epoch,mode=0):
 
       #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
       if (flag_global == True):
-        #loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
-        #loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
+        #perd_realDはここで破壊する
+        pred_realD_Global = net_Concat1.forward1(pred_realD_Global)
+        pred_fakeD_Global = net_Concat1.forward1(pred_fakeD_Global)
+        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
+        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
       if (flag_local == True):
-        #loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
-        #loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
+        pred_realD_Local = net_Concat1.forward1(pred_realD_Local)
+        pred_fakeD_Local = net_Concat1.forward1(pred_fakeD_Local)
+        loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
+        loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
 
       if (flag_edge == True):
         pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
@@ -594,6 +599,11 @@ def test(epoch):
 
       #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
       if (flag_global == True):
+        pred_realD_Global = net_Concat1.forward1(pred_realD_Global)
+        pred_fakeD_Global = net_Concat1.forward1(pred_fakeD_Global)
+        pred_realD_Local = net_Concat1.forward1(pred_realD_Local)
+        pred_fakeD_Local = net_Concat1.forward1(pred_fakeD_Local)
+
         loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
         loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
       if (flag_local == True):
