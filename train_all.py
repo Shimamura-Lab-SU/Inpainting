@@ -477,6 +477,9 @@ def train(epoch,mode=0):
         else:
           for i in range(6):
             result_list.append(0)
+        if mode == 0: #mode0の場合
+          result_list.append(0)
+
 
       loss_dg_r_avg = 0
       loss_dg_f_avg = 0
@@ -680,6 +683,9 @@ def test(epoch):
         else:
           for i in range(6):
             result_list.append(0)
+            
+        if mode == 0:
+          result_list.append(0)
 
       loss_dg_r_avg = 0
       loss_dg_f_avg = 0
