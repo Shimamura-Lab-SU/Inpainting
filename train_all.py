@@ -89,7 +89,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 100#データセットの数 (8000コ)
+max_dataset_num = 7500#データセットの数 (8000コ)
 max_test_dataset_num = 100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
@@ -192,7 +192,7 @@ mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channe
 #エポックごとに出力していく
 result_list = []
 
-each_loss_plot_flag = False
+each_loss_plot_flag = True
 
 def train(epoch,mode=0):
 
@@ -438,48 +438,48 @@ def train(epoch,mode=0):
 
 
       loss_g_avg += loss_g
-      if(mode != 0):
-        loss_d_avg += loss_d
-        loss_dg_r_avg += loss_d_realD_Global
-        loss_dg_f_avg += loss_d_fakeD_Global
-        loss_dl_r_avg += loss_d_realD_Local
-        loss_dl_f_avg += loss_d_fakeD_Local
-        loss_de_r_avg += loss_d_realD_Edge
-        loss_de_f_avg += loss_d_fakeD_Edge
+    if(mode != 0):
+      loss_d_avg += loss_d
+      loss_dg_r_avg += loss_d_realD_Global
+      loss_dg_f_avg += loss_d_fakeD_Global
+      loss_dl_r_avg += loss_d_realD_Local
+      loss_dl_f_avg += loss_d_fakeD_Local
+      loss_de_r_avg += loss_d_realD_Edge
+      loss_de_f_avg += loss_d_fakeD_Edge
 
+    if(mode == 1 or mode == 2):
+      loss_d_avg += loss_d
+    #最後のiterならログを記録する
+    if(iteration ==  (max_dataset_num / opt.batchSize) ):
+      loss_g_avg = loss_g_avg / iteration
       if(mode == 1 or mode == 2):
-        loss_d_avg += loss_d
-      #最後のiterならログを記録する
-      if(iteration ==  (max_dataset_num / opt.batchSize) ):
-        loss_g_avg = loss_g_avg / iteration
-        if(mode == 1 or mode == 2):
-          loss_d_avg = loss_d_avg / iteration
-        result_list.append('{:.4g}'.format(loss_g_avg))
-        if(mode == 1 or mode == 2):
-          result_list.append('{:.4g}'.format(loss_d_avg))
-        if(mode == 1 or mode == 2):
-          loss_d_avg = 0
+        loss_d_avg = loss_d_avg / iteration
+      result_list.append('{:.4g}'.format(loss_g_avg))
+      if(mode == 1 or mode == 2):
+        result_list.append('{:.4g}'.format(loss_d_avg))
+      if(mode == 1 or mode == 2):
+        loss_d_avg = 0
         loss_g_avg = 0
         #フラグが有効なら個別のロスを記録する
-        if(each_loss_plot_flag and mode != 0):
-          loss_dg_r_avg = loss_dg_r_avg / iteration 
-          loss_dg_f_avg = loss_dg_f_avg / iteration 
-          loss_dl_r_avg = loss_dl_r_avg / iteration
-          loss_dl_f_avg = loss_dl_f_avg / iteration
-          loss_de_r_avg = loss_de_r_avg / iteration 
-          loss_de_f_avg = loss_de_f_avg / iteration 
+      if(each_loss_plot_flag and mode != 0):
+        loss_dg_r_avg = loss_dg_r_avg / iteration 
+        loss_dg_f_avg = loss_dg_f_avg / iteration 
+        loss_dl_r_avg = loss_dl_r_avg / iteration
+        loss_dl_f_avg = loss_dl_f_avg / iteration
+        loss_de_r_avg = loss_de_r_avg / iteration 
+        loss_de_f_avg = loss_de_f_avg / iteration 
 
-          result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
-        else:
-          for i in range(6):
-            result_list.append(0)
-        if mode == 0: #mode0の場合
+        result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
+        result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
+        result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
+        result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
+        result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
+        result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
+      else:
+        for i in range(6):
           result_list.append(0)
+      if mode == 0: #mode0の場合
+        result_list.append(0)
 
 
       loss_dg_r_avg = 0
@@ -510,7 +510,7 @@ def train(epoch,mode=0):
 
 
 #テスト側
-def test(epoch):
+def test(epoch,mode=0):
   loss_g_avg = 0
   loss_d_avg = 0
 
@@ -525,7 +525,7 @@ def test(epoch):
   flag_local = True
   flag_edge = True
   flag_global = True
-  mode = 2 #いったんここで定義
+  #mode = 2 #いったんここで定義
 
   center = math.floor(image_size / 2)
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
@@ -552,7 +552,7 @@ def test(epoch):
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
       fake_b_raw = fake_b_raw.detach()
       #fake_b_raw = fake_b_raw
-      fake_b_image.data = input.data#元イメージを置き換える
+      fake_b_image = input.clone()#元イメージを置き換える
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d]
       #テストエラーを作成する
 
@@ -632,9 +632,12 @@ def test(epoch):
     #backward
 
       #最終的なロスの導出
-      test_loss_g = reconstruct_error + loss_d_fakeD
-      if (flag_edge == True):
-        test_loss_g += loss_d_fakeD_Edge 
+      test_loss_g = reconstruct_error
+      if (mode == 2):
+
+        test_loss_g += loss_d_fakeD
+        if (flag_edge == True):
+          test_loss_g += loss_d_fakeD_Edge 
       test_loss_d = loss_d
 
       fake_b_image = fake_b_image.cpu()
@@ -642,8 +645,8 @@ def test(epoch):
 
 
       #生成の結果のプロット       
-      Plot2Image(out_img,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
-      Plot2Image(edge_detection(  out_img,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
+      Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
+      Plot2Image(edge_detection( fake_b_image,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
 
 
 
@@ -814,20 +817,20 @@ def checkpoint(epoch,mode=0):
     os.mkdir(dirname)
   path = os.getcwd() + '\\' + dirname
   if mode != 1:
-    net_g_model_out_path = "{}/netG_model_epoch_{}.pth".format(path,epoch)
+    net_g_model_out_path = "{}/netG_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
     torch.save(netG, net_g_model_out_path)
   if mode != 0:
-    net_dg_model_out_path = "{}/netDg_model_epoch_{}.pth".format(path,epoch)
+    net_dg_model_out_path = "{}/netDg_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
     torch.save(netD_Global, net_dg_model_out_path)
-    net_dl_model_out_path = "{}/netDl_model_epoch_{}.pth".format(path,epoch)
+    net_dl_model_out_path = "{}/netDl_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
     torch.save(netD_Local, net_dl_model_out_path)
-    net_de_model_out_path = "{}/netDe_model_epoch_{}.pth".format(path,epoch)
+    net_de_model_out_path = "{}/netDe_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
     torch.save(netD_Edge, net_de_model_out_path)
   #print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
 
-gene_only_epoch = 100
-disc_only_epoch = 0
-total_epoch = 0
+gene_only_epoch = 10
+disc_only_epoch = 2
+total_epoch = 500
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
@@ -873,7 +876,7 @@ PlotError()
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch,mode=2)#両方
-  test(epoch)
+  test(epoch,2)
   if(epoch % 5 == 0):
     SaveModel(epoch,2)
 
@@ -884,7 +887,7 @@ for epoch in range(1, gene_only_epoch + 1):
 #discriminatorのtrain
 
   train(epoch,mode=0)#Discriminatorのみ
-  test(epoch)
+  test(epoch,0)
   if(epoch % 5 == 0):
     SaveModel(epoch,0)
 
@@ -895,9 +898,10 @@ for epoch in range(1, disc_only_epoch + 1):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch,mode=1)#Discriminatorのみ
+  test(epoch,1)
 #  checkpoint(epoch,1)
-if(epoch % 5 == 0):
-  SaveModel(epoch,1)
+  if(epoch % 5 == 0):
+    SaveModel(epoch,1)
   PlotError()
 #if Test==True:
   #test(1)
