@@ -1,5 +1,6 @@
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 # ログをとる対象を増やしてみる
 x1 = np.random.randn(100)

@@ -319,11 +319,11 @@ def train(epoch,mode=0):
 
       #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
       if (flag_global == True):
-        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
-        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
+        #loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
+        #loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
       if (flag_local == True):
-        loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
-        loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
+        #loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
+        #loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
 
       if (flag_edge == True):
         pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
@@ -463,13 +463,13 @@ def train(epoch,mode=0):
           loss_de_r_avg = loss_de_r_avg / iteration 
           loss_de_f_avg = loss_de_f_avg / iteration 
 
-          result_list.append(('{:.4g}'.format(loss_d_realD_Global))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Local))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Edge))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge))
-        else
+          result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
+        else:
           for i in range(6):
             result_list.append(0)
 
@@ -661,13 +661,13 @@ def test(epoch):
           loss_de_r_avg = loss_de_r_avg / iteration 
           loss_de_f_avg = loss_de_f_avg / iteration 
 
-          result_list.append(('{:.4g}'.format(loss_d_realD_Global))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Local))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Edge))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge))
-        else
+          result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
+          result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
+          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
+        else:
           for i in range(6):
             result_list.append(0)
 
