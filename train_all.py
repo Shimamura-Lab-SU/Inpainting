@@ -873,14 +873,6 @@ PlotError()
 
 
 
-for epoch in range(total_epoch):
-#discriminatorのtrain
-  train(epoch,mode=2)#両方
-  test(epoch,2)
-  if(epoch % 5 == 0):
-    SaveModel(epoch,2)
-
-  PlotError()
 
 
 for epoch in range(1, gene_only_epoch + 1):
@@ -906,6 +898,14 @@ for epoch in range(1, disc_only_epoch + 1):
 #if Test==True:
   #test(1)
 
+for epoch in range(total_epoch):
+#discriminatorのtrain
+  train(epoch,mode=2)#両方
+  test(epoch,2)
+  if(epoch % 5 == 0):
+    SaveModel(epoch,2)
+
+  PlotError()
 
 
 
