@@ -89,7 +89,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 100#データセットの数 (8000コ)
+max_dataset_num = 1500#データセットの数 (8000コ)
 max_test_dataset_num = 100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
@@ -120,8 +120,8 @@ disc_outpuc_nc = 1024
 #netD_Local = torch.load("checkpoint/netDl_1.pth")
 
 
-#netG = torch.load("checkpoint/netG_10_1227.pth")
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netG = torch.load("checkpoint/netG_50_Mode0.pth")
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
 #netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
@@ -801,9 +801,9 @@ def SaveModel(epoch,mode=0):
 
 
 
-gene_only_epoch = 5
+gene_only_epoch = 0
 disc_only_epoch = 5
-total_epoch = 5
+total_epoch = 500
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
