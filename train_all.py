@@ -27,6 +27,8 @@ import torchvision.transforms as transforms
 
 #import tensorboard as tbx # tensorboardXのインポート[ポイント1]
 from torch.utils.tensorboard import SummaryWriter
+from pytorch_memlab import profile
+
 
 import random
 import time
@@ -103,7 +105,7 @@ print('===> Building model')
 #netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-
+each_loss_plot_flag = True
 #100epoch組
 #netG = torch.load("checkpoint/netG_model_epoch_100.pth")
 #netD_Global = torch.load("checkpoint/netDg_model_epoch_100.pth")
@@ -192,8 +194,8 @@ mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channe
 #エポックごとに出力していく
 result_list = []
 
-each_loss_plot_flag = True
 
+@profile
 def train(epoch,mode=0):
 
   center = math.floor(image_size / 2)
@@ -437,18 +439,18 @@ def train(epoch,mode=0):
         loss_plot_array[iteration-1][3] = loss_d
 
 
-      loss_g_avg += loss_g
+      loss_g_avg += loss_g.detach()
     if(mode != 0):
-      loss_d_avg += loss_d
-      loss_dg_r_avg += loss_d_realD_Global
-      loss_dg_f_avg += loss_d_fakeD_Global
-      loss_dl_r_avg += loss_d_realD_Local
-      loss_dl_f_avg += loss_d_fakeD_Local
-      loss_de_r_avg += loss_d_realD_Edge
-      loss_de_f_avg += loss_d_fakeD_Edge
+      loss_d_avg += loss_d.detach()
+      loss_dg_r_avg += loss_d_realD_Global.detach()
+      loss_dg_f_avg += loss_d_fakeD_Global.detach()
+      loss_dl_r_avg += loss_d_realD_Local.detach()
+      loss_dl_f_avg += loss_d_fakeD_Local.detach()
+      loss_de_r_avg += loss_d_realD_Edge.detach()
+      loss_de_f_avg += loss_d_fakeD_Edge.detach()
 
-    if(mode == 1 or mode == 2):
-      loss_d_avg += loss_d
+
+      #loss_d_avg += loss_d
     #最後のiterならログを記録する
     if(iteration ==  (max_dataset_num / opt.batchSize) ):
       loss_g_avg = loss_g_avg / iteration
@@ -647,15 +649,15 @@ def test(epoch,mode=0):
 
 
 
-      loss_g_avg += test_loss_g
+      loss_g_avg += test_loss_g.detach()
       if(mode == 1 or mode == 2):
-        loss_d_avg += test_loss_d
-        loss_dg_r_avg += loss_d_realD_Global
-        loss_dg_f_avg += loss_d_fakeD_Global
-        loss_dl_r_avg += loss_d_realD_Local
-        loss_dl_f_avg += loss_d_fakeD_Local
-        loss_de_r_avg += loss_d_realD_Edge
-        loss_de_f_avg += loss_d_fakeD_Edge
+        loss_d_avg += test_loss_d.detach()
+        loss_dg_r_avg += loss_d_realD_Global.detach()
+        loss_dg_f_avg += loss_d_fakeD_Global.detach()
+        loss_dl_r_avg += loss_d_realD_Local.detach()
+        loss_dl_f_avg += loss_d_fakeD_Local.detach()
+        loss_de_r_avg += loss_d_realD_Edge.detach()
+        loss_de_f_avg += loss_d_fakeD_Edge.detach()
       #ロスの平均の導出
       if(iteration ==  (max_test_dataset_num)):
         loss_g_avg = loss_g_avg / iteration
@@ -803,7 +805,7 @@ def SaveModel(epoch,mode=0):
 
 gene_only_epoch = 0
 disc_only_epoch = 5
-total_epoch = 500
+total_epoch = 0
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
@@ -879,8 +881,6 @@ for epoch in range(total_epoch):
     SaveModel(epoch+1,2)
 
   PlotError()
-
-
 
 
 

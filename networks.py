@@ -7,6 +7,8 @@ import math
 import torchvision.utils as vutils
 import torch.nn.functional as F
 
+from pytorch_memlab import profile
+
 torch.device
 #ソーベル法に変更
 def edge_detection(__input,is_gpu = True):
@@ -189,7 +191,7 @@ class ResnetGenerator(nn.Module):
 
         self.model = nn.Sequential(*model)
 
-
+    
     def forward(self, input):
       tensor_b = input.cuda()
       if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
@@ -350,6 +352,7 @@ class Concatenation(nn.Module):
 
 #LocalDiscriminator
 class Local_Discriminator(nn.Module):
+
   def __init__(self, input_nc, output_nc ,ndf= 64,gpu_ids=[] ):
       super(Local_Discriminator, self).__init__()
       self.gpu_ids = gpu_ids
@@ -373,8 +376,9 @@ class Local_Discriminator(nn.Module):
       model_dence += [nn.Sigmoid()]
       self.model_conv = nn.Sequential(*model_conv)
       self.model_dence =  nn.Sequential(*model_dence)
-
+  @profile
   def forward(self, input):
+
     out = input.cuda()
     if self.gpu_ids and isinstance(out.data, torch.cuda.FloatTensor):
       out = nn.parallel.data_parallel(self.model_conv, out, self.gpu_ids)
