@@ -89,7 +89,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 7500#データセットの数 (8000コ)
+max_dataset_num = 100#データセットの数 (8000コ)
 max_test_dataset_num = 100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
@@ -496,16 +496,12 @@ def train(epoch,mode=0):
       if(iteration == 1):
         #初回のみRealA
         if(epoch == 1):
-          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}".format(epoch))
-        Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}".format(epoch))
-        Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}".format(epoch))
+          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}_Mode{}".format(epoch,mode))
+        Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}_Mode{}".format(epoch,mode))
+        Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}_Mode{}".format(epoch,mode))
         if(flag_edge==True):
-          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}".format(epoch))
+          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}_Mode{}".format(epoch,mode))
 
-      #ロスの出力
-      with open(Loss_dir_ + '/loss_log.csv', 'a') as f:
-        writer = csv.writer(f)
-        writer.writerows(loss_plot_array)
 
 
 
@@ -645,8 +641,8 @@ def test(epoch,mode=0):
 
 
       #生成の結果のプロット       
-      Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name)        
-      Plot2Image(edge_detection( fake_b_image,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name)        
+      Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name + '_' + str(mode))        
+      Plot2Image(edge_detection( fake_b_image,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name + '_' + str(mode))        
 
 
 
@@ -793,44 +789,21 @@ def Plot2Image(__input,__dir,__name):
 
 def SaveModel(epoch,mode=0):
   if mode != 1:
-    net_g_model_out_path =  Model_netG_dir_ + "/netG_{}.pth".format(epoch)
+    net_g_model_out_path =  Model_netG_dir_ + "/netG_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netG, net_g_model_out_path)
   if mode != 0:
-    net_dg_model_out_path =  Model_netDg_dir_ + "/netDg_{}.pth".format(epoch)
+    net_dg_model_out_path =  Model_netDg_dir_ + "/netDg_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Global, net_dg_model_out_path)
-    net_dl_model_out_path =  Model_netDl_dir_ + "/netDl_{}.pth".format(epoch)
+    net_dl_model_out_path =  Model_netDl_dir_ + "/netDl_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Local, net_dl_model_out_path)
-    net_de_model_out_path =  Model_netDe_dir_ + "/netDe_{}.pth".format(epoch)
+    net_de_model_out_path =  Model_netDe_dir_ + "/netDe_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Edge, net_de_model_out_path)
 
 
-def checkpoint(epoch,mode=0):
-  if mode == 0:
-    mode_dir = 'checkpoint_gene'
-  elif mode == 1:
-    mode_dir = 'checkpoint_disc'
-  else :
-    mode_dir = 'checkpoint_total' 
 
-  dirname = mode_dir + '\\' + str(start_date) + '-' + str(start_time.hour) + '-' + str(start_time.minute) + '-' + str(start_time.second) 
-  if not os.path.exists(dirname):
-    os.mkdir(dirname)
-  path = os.getcwd() + '\\' + dirname
-  if mode != 1:
-    net_g_model_out_path = "{}/netG_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
-    torch.save(netG, net_g_model_out_path)
-  if mode != 0:
-    net_dg_model_out_path = "{}/netDg_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
-    torch.save(netD_Global, net_dg_model_out_path)
-    net_dl_model_out_path = "{}/netDl_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
-    torch.save(netD_Local, net_dl_model_out_path)
-    net_de_model_out_path = "{}/netDe_model_epoch_{}_mode_{}.pth".format(path,epoch,mode)
-    torch.save(netD_Edge, net_de_model_out_path)
-  #print("Checkpoint saved to {}".format("checkpoint" + opt.dataset))
-
-gene_only_epoch = 10
-disc_only_epoch = 2
-total_epoch = 500
+gene_only_epoch = 5
+disc_only_epoch = 5
+total_epoch = 5
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
@@ -875,35 +848,35 @@ PlotError()
 
 
 
-for epoch in range(1, gene_only_epoch + 1):
+for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
-  train(epoch,mode=0)#Discriminatorのみ
-  test(epoch,0)
-  if(epoch % 5 == 0):
-    SaveModel(epoch,0)
+  train(epoch+1,mode=0)#Discriminatorのみ
+  test(epoch+1,0)
+  if((epoch+1) % 5 == 0):
+    SaveModel(epoch+1,0)
 
   PlotError()
 
 
-for epoch in range(1, disc_only_epoch + 1):
+for epoch in range(disc_only_epoch):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
-  train(epoch,mode=1)#Discriminatorのみ
-  test(epoch,1)
+  train(epoch+1,mode=1)#Discriminatorのみ
+  test(epoch+1,1)
 #  checkpoint(epoch,1)
-  if(epoch % 5 == 0):
-    SaveModel(epoch,1)
+  if((epoch+1) % 5 == 0):
+    SaveModel(epoch+1,1)
   PlotError()
 #if Test==True:
   #test(1)
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
-  train(epoch,mode=2)#両方
-  test(epoch,2)
-  if(epoch % 5 == 0):
-    SaveModel(epoch,2)
+  train(epoch+1,mode=2)#両方
+  test(epoch+1,2)
+  if((epoch+1) % 5 == 0):
+    SaveModel(epoch+1,2)
 
   PlotError()
 
