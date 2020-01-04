@@ -91,8 +91,8 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500#データセットの数 (8000コ)
-max_test_dataset_num = 100#データセットの数 (2000コ)
+max_dataset_num = 1#データセットの数 (8000コ)
+max_test_dataset_num = 1#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
@@ -824,8 +824,8 @@ def SaveModel(epoch,mode=0):
 
 
 
-gene_only_epoch = 0
-disc_only_epoch = 20
+gene_only_epoch = 1000
+disc_only_epoch = 10
 total_epoch = 1500
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
@@ -876,7 +876,7 @@ for epoch in range(gene_only_epoch):
 
   train(epoch+1,mode=0)#Discriminatorのみ
   test(epoch+1,0)
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 50 == 0):
     SaveModel(epoch+1,0)
 
   PlotError()
@@ -888,7 +888,7 @@ for epoch in range(disc_only_epoch):
   train(epoch+1,mode=1)#Discriminatorのみ
   test(epoch+1,1)
 #  checkpoint(epoch,1)
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 50 == 0):
     SaveModel(epoch+1,1)
   PlotError()
 #if Test==True:
@@ -898,7 +898,7 @@ for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
   test(epoch+1,2)
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 50 == 0):
     SaveModel(epoch+1,2)
 
   PlotError()
