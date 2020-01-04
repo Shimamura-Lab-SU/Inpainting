@@ -122,8 +122,8 @@ each_loss_plot_flag = True
 #netD_Local = torch.load("checkpoint/netDl_1.pth")
 
 
-netG = torch.load("checkpoint/netG_50_Mode0.pth")
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+#netG = torch.load("checkpoint/netG_100_Mode0_0104.pth")
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
 #netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
 #netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
 #netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
@@ -215,7 +215,7 @@ def train(epoch,mode=0):
   #2..Both 
   flag_global = True
   flag_local  = True
-  flag_edge   = True
+  flag_edge   = False
 
   loss_g_avg = 0
   loss_d_avg = 0
@@ -340,7 +340,7 @@ def train(epoch,mode=0):
 
     #2つのロスの足し合わせ
       if mode == 1:
-        loss_d = loss_d_realD + loss_d_fakeD 
+        loss_d = (loss_d_realD + loss_d_fakeD) 
       if mode == 2:
         if (flag_edge == True):
           loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
@@ -410,6 +410,7 @@ def train(epoch,mode=0):
 		  #reconstructError
       #fake_b_image_masked =  #GPU回避不可能？
       #real_a_image_masked =  #1次元で(61440)出てくるので..
+      real_a_3d = real_a_image_4d[:,0:3,:,:]
       reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
       loss_g = reconstruct_error
@@ -446,8 +447,9 @@ def train(epoch,mode=0):
       loss_dg_f_avg += loss_d_fakeD_Global.detach()
       loss_dl_r_avg += loss_d_realD_Local.detach()
       loss_dl_f_avg += loss_d_fakeD_Local.detach()
-      loss_de_r_avg += loss_d_realD_Edge.detach()
-      loss_de_f_avg += loss_d_fakeD_Edge.detach()
+      if(flag_edge):
+        loss_de_r_avg += loss_d_realD_Edge.detach()
+        loss_de_f_avg += loss_d_fakeD_Edge.detach()
 
 
       #loss_d_avg += loss_d
@@ -468,15 +470,21 @@ def train(epoch,mode=0):
         loss_dg_f_avg = loss_dg_f_avg / iteration 
         loss_dl_r_avg = loss_dl_r_avg / iteration
         loss_dl_f_avg = loss_dl_f_avg / iteration
-        loss_de_r_avg = loss_de_r_avg / iteration 
-        loss_de_f_avg = loss_de_f_avg / iteration 
+        if(flag_edge):
 
-        result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
-        result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
-        result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
-        result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
-        result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
-        result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
+          loss_de_r_avg = loss_de_r_avg / iteration 
+          loss_de_f_avg = loss_de_f_avg / iteration 
+
+        result_list.append(('{:.4g}'.format(loss_dg_r_avg)))
+        result_list.append(('{:.4g}'.format(loss_dg_f_avg)))
+        result_list.append(('{:.4g}'.format(loss_dl_r_avg)))
+        result_list.append(('{:.4g}'.format(loss_dl_f_avg)))
+        if(flag_edge):
+          result_list.append(('{:.4g}'.format(loss_de_r_avg)))
+          result_list.append(('{:.4g}'.format(loss_de_f_avg)))
+        else:
+          result_list.append(0)
+          result_list.append(0)
       else:
         for i in range(6):
           result_list.append(0)
@@ -521,7 +529,7 @@ def test(epoch,mode=0):
 
 
   flag_local = True
-  flag_edge = True
+  flag_edge = False
   flag_global = True
   #mode = 2 #いったんここで定義
 
@@ -556,7 +564,11 @@ def test(epoch,mode=0):
 
       fake_b_image_raw_4d = torch.cat((fake_b_raw,mask),1) #catはメインループ内で許可
       
-      reconstruct_error = criterionMSE(torch.masked_select(fake_b_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
+
+      fake_masked = torch.masked_select(fake_b_raw, mask_channel_3d_b)
+
+      real_masked = torch.masked_select(input, mask_channel_3d_b)
+      reconstruct_error = criterionMSE(fake_masked,real_masked)# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
       Mdpos_x = center
       Mdpos_y = center#12/31 テストのマスクは固定で中央にしてみる
@@ -621,7 +633,7 @@ def test(epoch,mode=0):
     #2つのロスの足し合わせ
       loss_d = 0
       if mode == 1:
-        loss_d = loss_d_realD + loss_d_fakeD 
+        loss_d = (loss_d_realD + loss_d_fakeD)  
       if mode == 2:
         if (flag_edge == True):
           loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
@@ -656,8 +668,11 @@ def test(epoch,mode=0):
         loss_dg_f_avg += loss_d_fakeD_Global.detach()
         loss_dl_r_avg += loss_d_realD_Local.detach()
         loss_dl_f_avg += loss_d_fakeD_Local.detach()
-        loss_de_r_avg += loss_d_realD_Edge.detach()
-        loss_de_f_avg += loss_d_fakeD_Edge.detach()
+        if(flag_edge):
+          loss_de_r_avg += loss_d_realD_Edge.detach()
+          loss_de_f_avg += loss_d_fakeD_Edge.detach()
+
+
       #ロスの平均の導出
       if(iteration ==  (max_test_dataset_num)):
         loss_g_avg = loss_g_avg / iteration
@@ -675,15 +690,21 @@ def test(epoch,mode=0):
           loss_dg_f_avg = loss_dg_f_avg / iteration 
           loss_dl_r_avg = loss_dl_r_avg / iteration
           loss_dl_f_avg = loss_dl_f_avg / iteration
-          loss_de_r_avg = loss_de_r_avg / iteration 
-          loss_de_f_avg = loss_de_f_avg / iteration 
+          if(flag_edge):
+            loss_de_r_avg = loss_de_r_avg / iteration 
+            loss_de_f_avg = loss_de_f_avg / iteration 
 
-          result_list.append(('{:.4g}'.format(loss_d_realD_Global)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Global)))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Local)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Local)))
-          result_list.append(('{:.4g}'.format(loss_d_realD_Edge)))
-          result_list.append(('{:.4g}'.format(loss_d_fakeD_Edge)))
+          result_list.append(('{:.4g}'.format(loss_dg_r_avg)))
+          result_list.append(('{:.4g}'.format(loss_dg_f_avg)))
+          result_list.append(('{:.4g}'.format(loss_dl_r_avg)))
+          result_list.append(('{:.4g}'.format(loss_dl_f_avg)))
+          if(flag_edge):
+            result_list.append(('{:.4g}'.format(loss_de_r_avg)))
+            result_list.append(('{:.4g}'.format(loss_de_f_avg)))
+          else:
+            result_list.append(0)
+            result_list.append(0)
+
         else:
           for i in range(6):
             result_list.append(0)
@@ -804,8 +825,8 @@ def SaveModel(epoch,mode=0):
 
 
 gene_only_epoch = 0
-disc_only_epoch = 5
-total_epoch = 0
+disc_only_epoch = 20
+total_epoch = 1500
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
