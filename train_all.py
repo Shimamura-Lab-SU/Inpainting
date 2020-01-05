@@ -26,7 +26,7 @@ from tqdm import tqdm
 import torchvision.transforms as transforms
 
 #import tensorboard as tbx # tensorboardXのインポート[ポイント1]
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 from pytorch_memlab import profile
 
 
@@ -37,6 +37,8 @@ transform_list = [transforms.ToTensor(),
                   transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
 
 transform = transforms.Compose(transform_list)
+
+writer = SummaryWriter(log_dir="Inpainting_train_allM1")
 
 #writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 
@@ -57,6 +59,52 @@ parser.add_argument('--threads', type=int, default=4, help='number of threads fo
 parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
 parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
+
+#パラメータの再定義をしてみる
+'''
+parser.add_argument('--dataset', required=True, help='Inpainting_food')
+parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
+
+parser.add_argument('--epochsM0', type=int, default=50, help='number of epochs to train for M0')
+parser.add_argument('--epochsM1', type=int, default=20, help='number of epochs to train for M1')
+parser.add_argument('--epochsM2', type=int, default=1500, help='number of epochs to train for M2')
+
+parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Default=0.002') #1に変更'(0.0004)
+parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+parser.add_argument('--cuda', action='store_true', default=True,help='use cuda?')
+parser.add_argument('--threads', type=int, default=0, help='number of threads for data loader to use')
+
+#こっからオリジナル
+
+#モデル,Optimizer系
+parser.add_argument('--G_model', type=str, default='none', help='model file to useG')
+parser.add_argument('--Dg_model', type=str, default='none', help='model file to useDg')
+parser.add_argument('--Dl_model', type=str, default='none', help='model file to useDl')
+parser.add_argument('--De_model', type=str, default='none', help='model file to useDe')
+
+parser.add_argument('--G_Optim', type=str, default='none', help='model file to useG')
+parser.add_argument('--Dg_Optim', type=str, default='none', help='model file to useDg')
+parser.add_argument('--Dl_Optim', type=str, default='none', help='model file to useDl')
+parser.add_argument('--De_Optim', type=str, default='none', help='model file to useDe')
+
+#int
+parser.add_argument('--train_N', type=int, default=500, help='DatasetNum')
+parser.add_argument('--test_N', type=int, default=100, help='DatasetNum_Test')
+parser.add_argument('--now_totalepoch', type=int, default=1)
+
+#float
+parser.add_argument('--disc_weight', type=float, default=0.0004)
+
+#Flag系
+parser.add_argument('--flag_global', type=bool, default=True)
+parser.add_argument('--flag_local', type=bool, default=True)
+parser.add_argument('--flag_edge', type=bool, default=True)
+parser.add_argument('--each_loss_plot_flag', type=bool, default=False)
+parser.add_argument('--test_flag', type=bool, default=False)
+
+'''
+
+
 
 opt = parser.parse_args()
 Output_Each_Epoch = True #エポックの終了時に訓練結果を画像として出力するか否か
@@ -91,7 +139,7 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 1500#データセットの数 (8000コ)
+max_dataset_num = 500#データセットの数 (8000コ)
 max_test_dataset_num = 100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
@@ -101,36 +149,55 @@ print('===> Building model')
 
 #3つのタスクのそれぞれのエポック
 
+#既存のモデル
+#file_list = []
+
+#モデルの絶対パスの取得
+#Model_Dir = './Model'
+#path = os.path.abspath(Model_Dir)
+#for root, dirs, files in os.walk(path):
+#  for fileo in files:
+#    #fulpath = root + "\\" + fileo
+#    #path_list = np.append(path_list,fulpath)
+#    file_list = np.append(file_list,fileo)
+#            #print(fulpath)
+#E
+#D
+#G
+#netG の順
+
+
 #先ず学習済みのGeneratorを読み込んで入れる
 #netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
 each_loss_plot_flag = True
+test_flag = False
 #100epoch組
-#netG = torch.load("checkpoint/netG_model_epoch_100.pth")
-#netD_Global = torch.load("checkpoint/netDg_model_epoch_100.pth")
-#netD_Local = torch.load("checkpoint/netDl_model_epoch_100.pth")
 
-#401epoch組(Edgeなし)
-#netG = torch.load("checkpoint/netG_model_epoch_401.pth")
-#netD_Global = torch.load("checkpoint/netDg_model_epoch_401.pth")
-#netD_Local = torch.load("checkpoint/netDl_model_epoch_401.pth")
+netG = torch.load("Model/netG_40_Mode2.pth")
+netD_Global = torch.load("Model/netDg_40_Mode2.pth")  
+netD_Edge = torch.load("Model/netDe_40_Mode2.pth")
+netD_Local = torch.load("Model/netDl_40_Mode2.pth")
 
-#Edge有350組
-#netD_Edge = torch.load("checkpoint/netDe_1.pth")
-#netD_Global = torch.load("checkpoint/netDg_1.pth")
-#netD_Local = torch.load("checkpoint/netDl_1.pth")
 
-#netG = torch.load("checkpoint/netG_100_Mode0_0104.pth")
 
-#netG = torch.load("checkpoint/netG_20_Mode2.pth")
-#netD_Global = torch.load("checkpoint/netDg_20_Mode2.pth")  
-#netD_Edge = torch.load("checkpoint/netDe_20_Mode2.pth")
-#netD_Local = torch.load("checkpoint/netDl_20_Mode2.pth")
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
+
+optimizerG = torch.load("Model/OptimG_40_Mode2.pth") # 
+optimizerD_Global = torch.load("Model/OptimDg_40_Mode2.pth") # 
+optimizerD_Local = torch.load("Model/OptimDl_40_Mode2.pth") # 
+optimizerD_Edge = torch.load("Model/OptimDe_40_Mode2.pth") # 
+
+#optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
+#optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
+#optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
+#optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+
+
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -139,14 +206,6 @@ criterionL1 = nn.L1Loss()
 criterionMSE = nn.MSELoss()
 criterionBCE = nn.BCELoss()#Discriminatorに使うため新設
 # setup optimizer
-optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
-optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
-optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
-optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
-#optimizerG = torch.load("che") # 
-#optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
-#optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
-#optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
 
 print('---------- Networks initialized -------------')
 print_network(netG)
@@ -835,11 +894,11 @@ def SaveModel(epoch,mode=0):
     net_de_model_out_path =  Model_netDe_dir_ + "/netDe_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Edge, net_de_model_out_path)
     #オプティマイザーも保存する
-    optim_dg_model_out_path =  Model_netG_dir_ + "/Optimdg_{}_Mode{}.pth".format(epoch,mode)
+    optim_dg_model_out_path =  Model_netDg_dir_ + "/Optimdg_{}_Mode{}.pth".format(epoch,mode)
     torch.save(optimizerD_Global, optim_dg_model_out_path)
-    optim_dl_model_out_path =  Model_netG_dir_ + "/Optimdl_{}_Mode{}.pth".format(epoch,mode)
+    optim_dl_model_out_path =  Model_netDl_dir_ + "/Optimdl_{}_Mode{}.pth".format(epoch,mode)
     torch.save(optimizerD_Local, optim_dl_model_out_path)
-    optim_de_model_out_path =  Model_netG_dir_ + "/Optimde_{}_Mode{}.pth".format(epoch,mode)
+    optim_de_model_out_path =  Model_netDe_dir_ + "/Optimde_{}_Mode{}.pth".format(epoch,mode)
     torch.save(optimizerD_Edge, optim_de_model_out_path)
 
 
@@ -848,12 +907,39 @@ def SaveModel(epoch,mode=0):
 gene_only_epoch = 0
 disc_only_epoch = 0
 total_epoch = 1500
+now_totalepoch = 1
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
 
 
-def PlotError():
+def PlotError(epoch=1):
+
+  if(epoch!=0):
+  #print(row) #rowは1行文の配列
+  #row_float = float(row)
+  #writer.add_scalar("Epoch",float(result_list[0]),epoch)
+    writer.add_scalar("Train_Loss_G",float(result_list[1]),epoch)
+    writer.add_scalar("Train_Loss_D",float(result_list[2]),epoch)
+    writer.add_scalar("Train_Loss_Dg_R",float(result_list[3]),epoch)
+    writer.add_scalar("Train_Loss_Dg_F",float(result_list[4]),epoch)
+    writer.add_scalar("Train_Loss_Dl_R",float(result_list[5]),epoch)
+    writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
+    writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
+    writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
+    if(test_flag):
+      writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
+      writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
+      writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
+      writer.add_scalar("Test_Loss_Dg_F",float(result_list[12]),epoch)
+      writer.add_scalar("Test_Loss_Dl_R",float(result_list[13]),epoch)
+      writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
+      writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
+      writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
+
+
+
+
   with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
     #writer = csv.writer(f)
     #string = ''
@@ -886,7 +972,7 @@ result_list.append("Test_Loss_Dl_R")
 result_list.append("Test_Loss_Dl_F")
 result_list.append("Test_Loss_De_R")
 result_list.append("Test_Loss_De_F")
-PlotError()
+PlotError(0)
 
 
 
@@ -897,10 +983,11 @@ for epoch in range(gene_only_epoch):
 
   train(epoch+1,mode=0)#Discriminatorのみ
   #test(epoch+1,0)
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 20 == 0):
     SaveModel(epoch+1,0)
 
-  PlotError()
+  PlotError(now_totalepoch)
+  now_totalepoch+=1
 
 
 for epoch in range(disc_only_epoch):
@@ -908,21 +995,25 @@ for epoch in range(disc_only_epoch):
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch+1,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 20 == 0):
     #test(epoch+1,1)
     SaveModel(epoch+1,1)
-  PlotError()
+  PlotError(now_totalepoch)
+  now_totalepoch+=1
 #if Test==True:
   #test(1)
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
-  if((epoch+1) % 5 == 0):
+  if((epoch+1) % 20 == 0):
     #test(epoch+1,2)
     SaveModel(epoch+1,2)
 
-  PlotError()
+  PlotError(now_totalepoch)
+  now_totalepoch+=1
+
+writer.close()
 
 
 
