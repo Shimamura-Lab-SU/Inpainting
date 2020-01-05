@@ -12,7 +12,7 @@ import csv
 #Result_Array
 writer = SummaryWriter(log_dir="Inpainting")
 
-with open('Result_Archive//2020-01-03-13-34//Losses//loss_log_result.csv') as f:
+with open('Results\2020-01-05-15-55\Losses\log_loss_result.csv') as f:
     reader = csv.reader(f)
     i = 0
     for row in reader:

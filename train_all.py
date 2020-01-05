@@ -122,14 +122,14 @@ each_loss_plot_flag = True
 #netD_Local = torch.load("checkpoint/netDl_1.pth")
 
 
-#netG = torch.load("checkpoint/netG_100_Mode0_0104.pth")
-netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-#netD_Global = torch.load("checkpoint/testing_modelDg_4.pth")  
-#netD_Global = torch.load("checkpoint/testing_modelDg1223_10.pth")
-#netD_Local = torch.load("checkpoint/testing_modelDl1223_10.pth")
-netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
+netG = torch.load("checkpoint/netG_20_Mode2.pth")
+#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netD_Global = torch.load("checkpoint/netDg_20_Mode2.pth")  
+netD_Edge = torch.load("checkpoint/netDe_20_Mode2.pth")
+netD_Local = torch.load("checkpoint/netDl_20_Mode2.pth")
+#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+#netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -282,7 +282,7 @@ def train(epoch,mode=0):
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
         pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
       if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_edge:
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
@@ -577,7 +577,7 @@ def test(epoch,mode=0):
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
         pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
       if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d,_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_edge:
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
@@ -825,7 +825,7 @@ def SaveModel(epoch,mode=0):
 
 
 gene_only_epoch = 0
-disc_only_epoch = 20
+disc_only_epoch = 0
 total_epoch = 1500
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
