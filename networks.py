@@ -199,6 +199,7 @@ class ResnetGenerator(nn.Module):
       else:
         tensor_b = self.model(tensor_b)
       
+      
       tensor_b = tensor_b.cpu()
       return tensor_b
       

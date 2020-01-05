@@ -12,7 +12,7 @@ import csv
 #Result_Array
 writer = SummaryWriter(log_dir="Inpainting")
 
-with open('Results\2020-01-05-15-55\Losses\log_loss_result.csv') as f:
+with open('LossForBoard//loss_log_result_old100-20-55.csv') as f:
     reader = csv.reader(f)
     i = 0
     for row in reader:
@@ -28,14 +28,14 @@ with open('Results\2020-01-05-15-55\Losses\log_loss_result.csv') as f:
             writer.add_scalar("Train_Loss_Dl_F",float(row[6]),i-1)
             writer.add_scalar("Train_Loss_De_R",float(row[7]),i-1)
             writer.add_scalar("Train_Loss_De_F",float(row[8]),i-1)
-            writer.add_scalar("Test_Loss_G",float(row[9]),i-1)
-            writer.add_scalar("Test_Loss_D",float(row[10]),i-1)
-            writer.add_scalar("Test_Loss_Dg_R",float(row[11]),i-1)
-            writer.add_scalar("Test_Loss_Dg_F",float(row[12]),i-1)
-            writer.add_scalar("Test_Loss_Dl_R",float(row[13]),i-1)
-            writer.add_scalar("Test_Loss_Dl_F",float(row[14]),i-1)
-            writer.add_scalar("Test_Loss_De_R",float(row[15]),i-1)
-            writer.add_scalar("Test_Loss_De_F",float(row[16]),i-1)
+            #writer.add_scalar("Test_Loss_G",float(row[9]),i-1)
+            #writer.add_scalar("Test_Loss_D",float(row[10]),i-1)
+            #writer.add_scalar("Test_Loss_Dg_R",float(row[11]),i-1)
+            #writer.add_scalar("Test_Loss_Dg_F",float(row[12]),i-1)
+            #writer.add_scalar("Test_Loss_Dl_R",float(row[13]),i-1)
+            #writer.add_scalar("Test_Loss_Dl_F",float(row[14]),i-1)
+            #writer.add_scalar("Test_Loss_De_R",float(row[15]),i-1)
+            #writer.add_scalar("Test_Loss_De_F",float(row[16]),i-1)
 
             #for j in range(len(row)):
                 #writerに追加

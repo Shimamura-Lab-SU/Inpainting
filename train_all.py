@@ -88,7 +88,7 @@ print('===> Loading datasets')
 root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
-training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
+training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = 1500#データセットの数 (8000コ)
@@ -121,15 +121,16 @@ each_loss_plot_flag = True
 #netD_Global = torch.load("checkpoint/netDg_1.pth")
 #netD_Local = torch.load("checkpoint/netDl_1.pth")
 
+#netG = torch.load("checkpoint/netG_100_Mode0_0104.pth")
 
-netG = torch.load("checkpoint/netG_20_Mode2.pth")
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-netD_Global = torch.load("checkpoint/netDg_20_Mode2.pth")  
-netD_Edge = torch.load("checkpoint/netDe_20_Mode2.pth")
-netD_Local = torch.load("checkpoint/netDl_20_Mode2.pth")
-#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
+#netG = torch.load("checkpoint/netG_20_Mode2.pth")
+#netD_Global = torch.load("checkpoint/netDg_20_Mode2.pth")  
+#netD_Edge = torch.load("checkpoint/netDe_20_Mode2.pth")
+#netD_Local = torch.load("checkpoint/netDl_20_Mode2.pth")
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -142,6 +143,10 @@ optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) #
 optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
 optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
 optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+#optimizerG = torch.load("che") # 
+#optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
+#optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
+#optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
 
 print('---------- Networks initialized -------------')
 print_network(netG)
@@ -316,8 +321,9 @@ def train(epoch,mode=0):
       true_label_tensor = Variable(torch.LongTensor())
       true_label_tensor  = torch.ones(opt.batchSize,1)
 
-      loss_d_realD = criterionBCE(pred_realD, true_label_tensor)
-      loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
+      loss_d_realD = criterionBCE(pred_realD, true_label_tensor) #min log(1-D)
+      loss_d_fakeD = criterionBCE(pred_fakeD, false_label_tensor) 
+      #ニセモノ-ホンモノをニセモノと判断させたいのでfalse
 
       #プロット用にGlobalとLocalのLossを上とは別に個別に導出する
       if (flag_global == True):
@@ -417,11 +423,11 @@ def train(epoch,mode=0):
       #最初のiterなら記録する (4桁)
 
       if mode == 2:
-        loss_d_fakeD = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) 
-        loss_g += loss_d_fakeD
+        loss_d_fakeD_ForG = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #min log(1-D)
+        loss_g += loss_d_fakeD_ForG
         if flag_edge == True:
-          loss_d_fakeD_Edge = disc_weight * criterionBCE(pred_fakeD_Edge, true_label_tensor)
-          loss_g += loss_d_fakeD_Edge
+          loss_d_fakeD_Edge_ForG = disc_weight * criterionBCE(pred_fakeD_Edge, true_label_tensor)
+          loss_g += loss_d_fakeD_Edge_ForG
       
       loss_g.backward()
 		  #Optimizerの更新
@@ -444,7 +450,7 @@ def train(epoch,mode=0):
     if(mode != 0):
       loss_d_avg += loss_d.detach()
       loss_dg_r_avg += loss_d_realD_Global.detach()
-      loss_dg_f_avg += loss_d_fakeD_Global.detach()
+      loss_dg_f_avg += loss_d_fakeD_Global.detach() #Gの学習でのこれとDの学習のこれが違うもので、前者をプロットしてしまっている
       loss_dl_r_avg += loss_d_realD_Local.detach()
       loss_dl_f_avg += loss_d_fakeD_Local.detach()
       if(flag_edge):
@@ -618,8 +624,8 @@ def test(epoch,mode=0):
         pred_realD_Local = net_Concat1.forward1(pred_realD_Local)
         pred_fakeD_Local = net_Concat1.forward1(pred_fakeD_Local)
 
-        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor)
-        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor)
+        loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor) #min log(1-D)
+        loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor) #min logD
       if (flag_local == True):
         loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
         loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
@@ -628,7 +634,7 @@ def test(epoch,mode=0):
         pred_fakeD_Edge = net_Concat1.forward1(pred_fakeD_Edge)
         pred_realD_Edge = net_Concat1.forward1(pred_realD_Edge)
         loss_d_realD_Edge = criterionBCE(pred_realD_Edge, true_label_tensor)
-        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, true_label_tensor)
+        loss_d_fakeD_Edge = criterionBCE(pred_fakeD_Edge, false_label_tensor)
 
     #2つのロスの足し合わせ
       loss_d = 0
@@ -643,11 +649,15 @@ def test(epoch,mode=0):
 
       #最終的なロスの導出
       test_loss_g = reconstruct_error
+      #LossG用のLossの導出
       if (mode == 2):
+        loss_d_fakeD_ForG = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #min log(1-D)
+        if flag_edge == True:
+          loss_d_fakeD_Edge_ForG = disc_weight * criterionBCE(pred_fakeD_Edge, true_label_tensor)
 
-        test_loss_g += loss_d_fakeD
+        test_loss_g += loss_d_fakeD_ForG
         if (flag_edge == True):
-          test_loss_g += loss_d_fakeD_Edge 
+          test_loss_g += loss_d_fakeD_Edge_ForG 
       test_loss_d = loss_d
 
       fake_b_image = fake_b_image.cpu()
@@ -814,6 +824,9 @@ def SaveModel(epoch,mode=0):
   if mode != 1:
     net_g_model_out_path =  Model_netG_dir_ + "/netG_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netG, net_g_model_out_path)
+    #オプティマイザーも保存する
+    optim_g_model_out_path =  Model_netG_dir_ + "/OptimG_{}_Mode{}.pth".format(epoch,mode)
+    torch.save(optimizerG, optim_g_model_out_path)
   if mode != 0:
     net_dg_model_out_path =  Model_netDg_dir_ + "/netDg_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Global, net_dg_model_out_path)
@@ -821,6 +834,14 @@ def SaveModel(epoch,mode=0):
     torch.save(netD_Local, net_dl_model_out_path)
     net_de_model_out_path =  Model_netDe_dir_ + "/netDe_{}_Mode{}.pth".format(epoch,mode)
     torch.save(netD_Edge, net_de_model_out_path)
+    #オプティマイザーも保存する
+    optim_dg_model_out_path =  Model_netG_dir_ + "/Optimdg_{}_Mode{}.pth".format(epoch,mode)
+    torch.save(optimizerD_Global, optim_dg_model_out_path)
+    optim_dl_model_out_path =  Model_netG_dir_ + "/Optimdl_{}_Mode{}.pth".format(epoch,mode)
+    torch.save(optimizerD_Local, optim_dl_model_out_path)
+    optim_de_model_out_path =  Model_netG_dir_ + "/Optimde_{}_Mode{}.pth".format(epoch,mode)
+    torch.save(optimizerD_Edge, optim_de_model_out_path)
+
 
 
 
@@ -875,7 +896,7 @@ for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
   train(epoch+1,mode=0)#Discriminatorのみ
-  test(epoch+1,0)
+  #test(epoch+1,0)
   if((epoch+1) % 5 == 0):
     SaveModel(epoch+1,0)
 
@@ -886,9 +907,9 @@ for epoch in range(disc_only_epoch):
 #discriminatorのtrain
   #netG = torch.load("checkpoint/testing_modelG_15.pth")
   train(epoch+1,mode=1)#Discriminatorのみ
-  test(epoch+1,1)
 #  checkpoint(epoch,1)
   if((epoch+1) % 5 == 0):
+    #test(epoch+1,1)
     SaveModel(epoch+1,1)
   PlotError()
 #if Test==True:
@@ -897,8 +918,8 @@ for epoch in range(disc_only_epoch):
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
-  test(epoch+1,2)
   if((epoch+1) % 5 == 0):
+    #test(epoch+1,2)
     SaveModel(epoch+1,2)
 
   PlotError()
