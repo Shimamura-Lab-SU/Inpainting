@@ -41,7 +41,7 @@ transform = transforms.Compose(transform_list)
 writer = SummaryWriter(log_dir="Writer/Inpainting_train_all_500_2")
 
 #writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
-
+'''
 # Training settings
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
 parser.add_argument('--dataset', required=True, help='facades')
@@ -59,9 +59,9 @@ parser.add_argument('--threads', type=int, default=4, help='number of threads fo
 parser.add_argument('--seed', type=int, default=1297, help='random seed to use. Default=123')
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
 parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
-
-#パラメータの再定義をしてみる
 '''
+#パラメータの再定義をしてみる
+parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
 parser.add_argument('--dataset', required=True, help='Inpainting_food')
 parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
 
@@ -77,20 +77,22 @@ parser.add_argument('--threads', type=int, default=0, help='number of threads fo
 #こっからオリジナル
 
 #モデル,Optimizer系
-parser.add_argument('--G_model', type=str, default='none', help='model file to useG')
-parser.add_argument('--Dg_model', type=str, default='none', help='model file to useDg')
-parser.add_argument('--Dl_model', type=str, default='none', help='model file to useDl')
-parser.add_argument('--De_model', type=str, default='none', help='model file to useDe')
+#parser.add_argument('--G_model', type=str, default='none', help='model file to useG')
+#parser.add_argument('--Dg_model', type=str, default='none', help='model file to useDg')
+#parser.add_argument('--Dl_model', type=str, default='none', help='model file to useDl')
+#parser.add_argument('--De_model', type=str, default='none', help='model file to useDe')
 
-parser.add_argument('--G_Optim', type=str, default='none', help='model file to useG')
-parser.add_argument('--Dg_Optim', type=str, default='none', help='model file to useDg')
-parser.add_argument('--Dl_Optim', type=str, default='none', help='model file to useDl')
-parser.add_argument('--De_Optim', type=str, default='none', help='model file to useDe')
+#parser.add_argument('--G_Optim', type=str, default='none', help='model file to useG')
+#parser.add_argument('--Dg_Optim', type=str, default='none', help='model file to useDg')
+#parser.add_argument('--Dl_Optim', type=str, default='none', help='model file to useDl')
+#parser.add_argument('--De_Optim', type=str, default='none', help='model file to useDe')
+
+perser.add_agrument('--checkpoint',type=str,default='none')
 
 #int
 parser.add_argument('--train_N', type=int, default=500, help='DatasetNum')
 parser.add_argument('--test_N', type=int, default=100, help='DatasetNum_Test')
-parser.add_argument('--now_totalepoch', type=int, default=1)
+#parser.add_argument('--now_totalepoch', type=int, default=1)
 
 #float
 parser.add_argument('--disc_weight', type=float, default=0.0004)
@@ -99,15 +101,14 @@ parser.add_argument('--disc_weight', type=float, default=0.0004)
 parser.add_argument('--flag_global', type=bool, default=True)
 parser.add_argument('--flag_local', type=bool, default=True)
 parser.add_argument('--flag_edge', type=bool, default=True)
-parser.add_argument('--each_loss_plot_flag', type=bool, default=False)
+parser.add_argument('--each_loss_plot_flag', type=bool, default=True)
 parser.add_argument('--test_flag', type=bool, default=False)
 
-'''
+
 
 
 
 opt = parser.parse_args()
-Output_Each_Epoch = True #エポックの終了時に訓練結果を画像として出力するか否か
 
 #画像サイズまわりはここで整合性をとりながら入力すること
 hall_size = 64 # 穴の大きさ(pic)
@@ -119,7 +120,7 @@ d = 32 #生成窓の半分の大きさ
 d2 =  64#LocalDiscriminator窓の半分の大きさ
 padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
 
-disc_weight = 0.0004
+disc_weight = opt.disc_weight#0.0004
 
 print(opt)
 
@@ -139,40 +140,19 @@ test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
 testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
-max_dataset_num = 500#データセットの数 (8000コ)
-max_test_dataset_num = 100#データセットの数 (2000コ)
+max_dataset_num = opt.train_N#500#データセットの数 (8000コ)
+max_test_dataset_num = opt.test_N#100#データセットの数 (2000コ)
 
 train_set.image_filenames = train_set.image_filenames[:max_dataset_num]
 test_set.image_filenames = test_set.image_filenames[:max_test_dataset_num]
 
 print('===> Building model')
 
-#3つのタスクのそれぞれのエポック
 
-#既存のモデル
-#file_list = []
-
-#モデルの絶対パスの取得
-#Model_Dir = './Model'
-#path = os.path.abspath(Model_Dir)
-#for root, dirs, files in os.walk(path):
-#  for fileo in files:
-#    #fulpath = root + "\\" + fileo
-#    #path_list = np.append(path_list,fulpath)
-#    file_list = np.append(file_list,fileo)
-#            #print(fulpath)
-#E
-#D
-#G
-#netG の順
-
-
-#先ず学習済みのGeneratorを読み込んで入れる
-#netG = torch.load(opt.G_model)
 disc_input_nc = 4
 disc_outpuc_nc = 1024
-each_loss_plot_flag = True
-test_flag = False
+each_loss_plot_flag = opt.each_loss_plot_flag#True
+test_flag = opt.test_flag#False
 #100epoch組
 
 #netG = torch.load("Model/netG_20_Mode2.pth")
@@ -196,12 +176,14 @@ netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
-checkpoint =torch.load('Model\\Models_99.tar')
+if(opt.checkpoint!='none'):
+  checkpoint =torch.load(opt.checkpoint)#torch.load('Model\\Models_99.tar')
 
-netG.load_state_dict(checkpoint['netG_state_dict'])
-netD_Global.load_state_dict(checkpoint['netDg_state_dict'])
-netD_Local.load_state_dict(checkpoint['netDl_state_dict'])
-netD_Edge.load_state_dict(checkpoint['netDe_state_dict'])
+if(opt.checkpoint!='none'):
+  netG.load_state_dict(checkpoint['netG_state_dict'])
+  netD_Global.load_state_dict(checkpoint['netDg_state_dict'])
+  netD_Local.load_state_dict(checkpoint['netDl_state_dict'])
+  netD_Edge.load_state_dict(checkpoint['netDe_state_dict'])
 
 if opt.cuda:
   #
@@ -224,11 +206,11 @@ optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
 optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
 optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
 
-
-optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
-optimizerD_Global.load_state_dict(checkpoint['optimizerDg_state_dict'])
-optimizerD_Local.load_state_dict(checkpoint['optimizerDl_state_dict'])
-optimizerD_Edge.load_state_dict(checkpoint['optimizerDe_state_dict'])
+if(opt.checkpoint!='none'):
+  optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
+  optimizerD_Global.load_state_dict(checkpoint['optimizerDg_state_dict'])
+  optimizerD_Local.load_state_dict(checkpoint['optimizerDl_state_dict'])
+  optimizerD_Edge.load_state_dict(checkpoint['optimizerDe_state_dict'])
 #新しい形式でのモデルの読み込み
 
 
@@ -302,9 +284,9 @@ def train(epoch,mode=0):
   #0..OnlyGenerator
   #1..OnlyDiscriminator
   #2..Both 
-  flag_global = True
-  flag_local  = True
-  flag_edge   = False
+  flag_global = opt.flag_global#True
+  flag_local  = opt.flag_local#True
+  flag_edge   = opt.flag_edge#False
 
   loss_g_avg = 0
   loss_d_avg = 0
@@ -945,12 +927,14 @@ def SaveModel_Multiple(epoch,total_epoch,mode=0):
 
 
 
-gene_only_epoch = 0
-disc_only_epoch = 20
-total_epoch = 1500
-now_totalepoch = 1
+gene_only_epoch = opt.epochsM0
+disc_only_epoch = opt.epochsM1
+total_epoch = opt.epochsM2
 
-now_totalepoch =  checkpoint['total_epoch'] + 1
+if(opt.checkpoint!='none'):
+  now_totalepoch =  checkpoint['total_epoch'] + 1
+else:
+  now_totalepoch = 1
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
