@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
 
         {
             "name": "Python: Current File",
@@ -15,7 +16,7 @@
 
             "args":[
                 //新コマンドライン
-                "--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_139.tar","--flag_edge=False"
+                "--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_139.tar","--flag_edge=0"
                 //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
                 //"--dataset=Inpainting_food" ,"--batchSize=10","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
             ]

@@ -60,9 +60,12 @@ parser.add_argument('--seed', type=int, default=1297, help='random seed to use. 
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
 parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
 '''
+
+
+
 #パラメータの再定義をしてみる
 parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
-parser.add_argument('--dataset', required=True, help='Inpainting_food')
+parser.add_argument('--dataset',type=str, default='Inpainting_food')
 parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
 
 parser.add_argument('--epochsM0', type=int, default=50, help='number of epochs to train for M0')
@@ -73,6 +76,12 @@ parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Def
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', default=True,help='use cuda?')
 parser.add_argument('--threads', type=int, default=0, help='number of threads for data loader to use')
+parser.add_argument('--seed', type=int, default=1297, help='random seed to use. Default=123')
+
+parser.add_argument('--input_nc', type=int, default=3, help='input image channels')
+parser.add_argument('--output_nc', type=int, default=3, help='output image channels')
+parser.add_argument('--ngf', type=int, default=64, help='generator filters in first conv layer')
+parser.add_argument('--ndf', type=int, default=64, help='discriminator filters in first conv layer')
 
 #こっからオリジナル
 
@@ -87,7 +96,7 @@ parser.add_argument('--threads', type=int, default=0, help='number of threads fo
 #parser.add_argument('--Dl_Optim', type=str, default='none', help='model file to useDl')
 #parser.add_argument('--De_Optim', type=str, default='none', help='model file to useDe')
 
-perser.add_agrument('--checkpoint',type=str,default='none')
+parser.add_argument('--checkpoint',type=str,default='none')
 
 #int
 parser.add_argument('--train_N', type=int, default=500, help='DatasetNum')
@@ -98,11 +107,11 @@ parser.add_argument('--test_N', type=int, default=100, help='DatasetNum_Test')
 parser.add_argument('--disc_weight', type=float, default=0.0004)
 
 #Flag系
-parser.add_argument('--flag_global', type=bool, default=True)
-parser.add_argument('--flag_local', type=bool, default=True)
-parser.add_argument('--flag_edge', type=bool, default=True)
-parser.add_argument('--each_loss_plot_flag', type=bool, default=True)
-parser.add_argument('--test_flag', type=bool, default=False)
+parser.add_argument('--flag_global', type=int, default=1)
+parser.add_argument('--flag_local', type=int, default=1)
+parser.add_argument('--flag_edge', type=int, default=1)
+parser.add_argument('--each_loss_plot_flag', type=int, default=1)
+parser.add_argument('--test_flag', type=int, default=0)
 
 
 
@@ -138,7 +147,7 @@ root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
 training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
-testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
+#testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = opt.train_N#500#データセットの数 (8000コ)
 max_test_dataset_num = opt.test_N#100#データセットの数 (2000コ)
@@ -600,9 +609,9 @@ def test(epoch,mode=0):
   loss_de_f_avg = 0
 
 
-  flag_local = True
-  flag_edge = False
-  flag_global = True
+  flag_local = opt.flag_local#True
+  flag_edge = opt.flag_edget#False
+  flag_global = opt.flag_global #True
   #mode = 2 #いったんここで定義
 
   center = math.floor(image_size / 2)
@@ -1009,7 +1018,8 @@ for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
   train(epoch+1,mode=0)#Discriminatorのみ
-  #test(epoch+1,0)
+  if(test_flag):
+    test(epoch+1,0)
   if((epoch+1) % 20 == 0):
     #SaveModel(epoch+1,0)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1026,9 +1036,10 @@ for epoch in range(disc_only_epoch):
 
   train(epoch+1,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
+  if(test_flag):
+    test(epoch+1,1)
+    
   if((epoch+1) % 20 == 0):
-    #test(epoch+1,1)
-    #SaveModel(epoch+1,1)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
   if((epoch+1) == 1):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1040,9 +1051,11 @@ for epoch in range(disc_only_epoch):
 for epoch in range(total_epoch):
 #discriminatorのtrain
   train(epoch+1,mode=2)#両方
+  if(test_flag):
+    test(epoch+1,1)
+
   if((epoch+1) % 20 == 0):
-    #test(epoch+1,2)
-    #SaveModel(epoch+1,2)
+
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
 
   if((epoch+1) == 1):
