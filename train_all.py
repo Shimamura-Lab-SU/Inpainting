@@ -38,7 +38,7 @@ transform_list = [transforms.ToTensor(),
 
 transform = transforms.Compose(transform_list)
 
-writer = SummaryWriter(log_dir="Inpainting_train_all_1500_3")
+writer = SummaryWriter(log_dir="Writer/Inpainting_train_all_500_2")
 
 #writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 
@@ -56,7 +56,7 @@ parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Def
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', help='use cuda?')
 parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
-parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
+parser.add_argument('--seed', type=int, default=1297, help='random seed to use. Default=123')
 parser.add_argument('--lamb', type=int, default=10, help='weight on L1 term in objective')
 parser.add_argument('--G_model', type=str, default='checkpoint/testing_modelG_25.pth', help='model file to use')
 
@@ -192,17 +192,38 @@ netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 #optimizerD_Local = torch.load("Model/OptimDl_20_Mode2.pth") # 
 #optimizerD_Edge = torch.load("Model/OptimDe_20_Mode2.pth") # 
 
-optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
-optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
-optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
-optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
 
-checkpoint =torch.load('Model\\Models_141.tar')
+net_Concat = define_Concat(2048,1,[0])
+net_Concat1 = define_Concat(1024,1,[0])
+
+checkpoint =torch.load('Model\\Models_99.tar')
 
 netG.load_state_dict(checkpoint['netG_state_dict'])
 netD_Global.load_state_dict(checkpoint['netDg_state_dict'])
 netD_Local.load_state_dict(checkpoint['netDl_state_dict'])
 netD_Edge.load_state_dict(checkpoint['netDe_state_dict'])
+
+if opt.cuda:
+  #
+  netD_Global = netD_Global.cuda()
+  netD_Local  = netD_Local.cuda()
+  netD_Edge   = netD_Edge.cuda()
+  netG = netG.cuda()#
+  net_Concat = net_Concat.cuda()
+  net_Concat1 = net_Concat1.cuda()
+  #
+  #optimizerG = optimizerG.cuda()
+  #optimizerD_Global = optimizerD_Global.cuda()
+  #optimizerD_Local = optimizerD_Local.cuda()
+  #optimizerD_Edge = optimizerD_Edge.cuda()
+
+
+
+optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
+optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
+optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
+optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+
 
 optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
 optimizerD_Global.load_state_dict(checkpoint['optimizerDg_state_dict'])
@@ -212,8 +233,6 @@ optimizerD_Edge.load_state_dict(checkpoint['optimizerDe_state_dict'])
 
 
 
-net_Concat = define_Concat(2048,1,[0])
-net_Concat1 = define_Concat(1024,1,[0])
 
 criterionGAN = GANLoss()
 criterionL1 = nn.L1Loss()
@@ -230,14 +249,6 @@ print('-----------------------------------------------')
 
 
 if opt.cuda:
-  #
-  netD_Global = netD_Global.cuda()
-  netD_Local  = netD_Local.cuda()
-  netD_Edge   = netD_Edge.cuda()
-  netG = netG.cuda()#
-  net_Concat = net_Concat.cuda()
-  net_Concat1 = net_Concat1.cuda()
-  #
   criterionGAN = criterionGAN.cuda()
   criterionL1 = criterionL1.cuda()
   criterionMSE = criterionMSE.cuda()
@@ -929,15 +940,17 @@ def SaveModel_Multiple(epoch,total_epoch,mode=0):
 
     'total_epoch':total_epoch,
     'epoch':epoch
-  },'Model\\Models_{}.tar'.format(total_epoch)
+  },'{}\\Models_{}.tar'.format(result_dir+ Time_dir + Model_dir,total_epoch)
   )
 
 
 
 gene_only_epoch = 0
-disc_only_epoch = 0
+disc_only_epoch = 20
 total_epoch = 1500
 now_totalepoch = 1
+
+now_totalepoch =  checkpoint['total_epoch'] + 1
 #Test = False
 #使用する既存のモデルがある場合はここでloadする
 
@@ -1014,7 +1027,8 @@ for epoch in range(gene_only_epoch):
   train(epoch+1,mode=0)#Discriminatorのみ
   #test(epoch+1,0)
   if((epoch+1) % 20 == 0):
-    SaveModel(epoch+1,0)
+    #SaveModel(epoch+1,0)
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
   if((epoch+1) == 1):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
   PlotError(now_totalepoch)
@@ -1030,7 +1044,8 @@ for epoch in range(disc_only_epoch):
 #  checkpoint(epoch,1)
   if((epoch+1) % 20 == 0):
     #test(epoch+1,1)
-    SaveModel(epoch+1,1)
+    #SaveModel(epoch+1,1)
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
   if((epoch+1) == 1):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
   PlotError(now_totalepoch)
@@ -1043,7 +1058,8 @@ for epoch in range(total_epoch):
   train(epoch+1,mode=2)#両方
   if((epoch+1) % 20 == 0):
     #test(epoch+1,2)
-    SaveModel(epoch+1,2)
+    #SaveModel(epoch+1,2)
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
 
   if((epoch+1) == 1):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)

@@ -377,7 +377,7 @@ class Local_Discriminator(nn.Module):
       model_dence += [nn.Sigmoid()]
       self.model_conv = nn.Sequential(*model_conv)
       self.model_dence =  nn.Sequential(*model_dence)
-  @profile
+
   def forward(self, input):
 
     out = input.cuda()
