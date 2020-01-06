@@ -10,3 +10,4 @@ Inpainting/events.out.tfevents.1578217969.DESKTOP-FLE2PSN
 Inpainting/
 Inpainting_train_allM1/
 Inpainting_train_all/
+*.tar
