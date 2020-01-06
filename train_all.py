@@ -38,7 +38,7 @@ transform_list = [transforms.ToTensor(),
 
 transform = transforms.Compose(transform_list)
 
-writer = SummaryWriter(log_dir="Inpainting_train_allM1")
+writer = SummaryWriter(log_dir="Inpainting_train_all_1500_3")
 
 #writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 
@@ -175,27 +175,41 @@ each_loss_plot_flag = True
 test_flag = False
 #100epoch組
 
-netG = torch.load("Model/netG_40_Mode2.pth")
-netD_Global = torch.load("Model/netDg_40_Mode2.pth")  
-netD_Edge = torch.load("Model/netDe_40_Mode2.pth")
-netD_Local = torch.load("Model/netDl_40_Mode2.pth")
+#netG = torch.load("Model/netG_20_Mode2.pth")
+#netD_Global = torch.load("Model/netDg_20_Mode2.pth")  
+#netD_Edge = torch.load("Model/netDe_20_Mode2.pth")
+#netD_Local = torch.load("Model/netDl_20_Mode2.pth")
 
 
 
-#netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
-#netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
-#netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
+netG = define_G(4, 3, opt.ngf, 'batch', False, [0])
+netD_Global = define_D_Global(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Local   = define_D_Local(disc_input_nc , disc_outpuc_nc, opt.ndf,  [0])
+netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 
-optimizerG = torch.load("Model/OptimG_40_Mode2.pth") # 
-optimizerD_Global = torch.load("Model/OptimDg_40_Mode2.pth") # 
-optimizerD_Local = torch.load("Model/OptimDl_40_Mode2.pth") # 
-optimizerD_Edge = torch.load("Model/OptimDe_40_Mode2.pth") # 
+#optimizerG = torch.load("Model/OptimG_20_Mode2.pth") # 
+#optimizerD_Global = torch.load("Model/OptimDg_20_Mode2.pth") # 
+#optimizerD_Local = torch.load("Model/OptimDl_20_Mode2.pth") # 
+#optimizerD_Edge = torch.load("Model/OptimDe_20_Mode2.pth") # 
 
-#optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
-#optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
-#optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
-#optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
+optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
+optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
+optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+
+checkpoint =torch.load('Model\\Models_141.tar')
+
+netG.load_state_dict(checkpoint['netG_state_dict'])
+netD_Global.load_state_dict(checkpoint['netDg_state_dict'])
+netD_Local.load_state_dict(checkpoint['netDl_state_dict'])
+netD_Edge.load_state_dict(checkpoint['netDe_state_dict'])
+
+optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
+optimizerD_Global.load_state_dict(checkpoint['optimizerDg_state_dict'])
+optimizerD_Local.load_state_dict(checkpoint['optimizerDl_state_dict'])
+optimizerD_Edge.load_state_dict(checkpoint['optimizerDe_state_dict'])
+#新しい形式でのモデルの読み込み
+
 
 
 net_Concat = define_Concat(2048,1,[0])
@@ -259,7 +273,7 @@ mask_channel_3d_f = torch.cat((mask_channel_float,mask_channel_float,mask_channe
 result_list = []
 
 
-@profile
+
 def train(epoch,mode=0):
 
   center = math.floor(image_size / 2)
@@ -901,6 +915,22 @@ def SaveModel(epoch,mode=0):
     optim_de_model_out_path =  Model_netDe_dir_ + "/Optimde_{}_Mode{}.pth".format(epoch,mode)
     torch.save(optimizerD_Edge, optim_de_model_out_path)
 
+def SaveModel_Multiple(epoch,total_epoch,mode=0):
+  torch.save({
+    'netG_state_dict': netG.state_dict(),
+    'netDg_state_dict': netD_Global.state_dict(),
+    'netDl_state_dict': netD_Local.state_dict(),
+    'netDe_state_dict': netD_Edge.state_dict(),
+
+    'optimizerG_state_dict':optimizerG.state_dict(),
+    'optimizerDg_state_dict':optimizerD_Global.state_dict(),
+    'optimizerDl_state_dict':optimizerD_Local.state_dict(),
+    'optimizerDe_state_dict':optimizerD_Edge.state_dict(),
+
+    'total_epoch':total_epoch,
+    'epoch':epoch
+  },'Model\\Models_{}.tar'.format(total_epoch)
+  )
 
 
 
@@ -985,19 +1015,24 @@ for epoch in range(gene_only_epoch):
   #test(epoch+1,0)
   if((epoch+1) % 20 == 0):
     SaveModel(epoch+1,0)
-
+  if((epoch+1) == 1):
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
   PlotError(now_totalepoch)
   now_totalepoch+=1
+  
+  
 
 
 for epoch in range(disc_only_epoch):
 #discriminatorのtrain
-  #netG = torch.load("checkpoint/testing_modelG_15.pth")
+
   train(epoch+1,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
   if((epoch+1) % 20 == 0):
     #test(epoch+1,1)
     SaveModel(epoch+1,1)
+  if((epoch+1) == 1):
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
   PlotError(now_totalepoch)
   now_totalepoch+=1
 #if Test==True:
@@ -1010,6 +1045,8 @@ for epoch in range(total_epoch):
     #test(epoch+1,2)
     SaveModel(epoch+1,2)
 
+  if((epoch+1) == 1):
+    SaveModel_Multiple(epoch+1,now_totalepoch,0)
   PlotError(now_totalepoch)
   now_totalepoch+=1
 
