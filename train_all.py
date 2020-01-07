@@ -38,7 +38,6 @@ transform_list = [transforms.ToTensor(),
 
 transform = transforms.Compose(transform_list)
 
-writer = SummaryWriter(log_dir="Writer/Inpainting_train_all_500_2")
 
 #writer = SummaryWriter(log_dir="logs")# SummaryWriterのインスタンス作成[ポイント2]
 '''
@@ -113,7 +112,10 @@ parser.add_argument('--flag_edge', type=int, default=1)
 parser.add_argument('--each_loss_plot_flag', type=int, default=1)
 parser.add_argument('--test_flag', type=int, default=0)
 
-
+#1/7追加
+parser.add_argument('--train_flag', type=int, default=1)
+parser.add_argument('--writer',type=str,default='none')
+parser.add_argument('--savemodel_interval', type=int, default=20)
 
 
 
@@ -162,6 +164,8 @@ disc_input_nc = 4
 disc_outpuc_nc = 1024
 each_loss_plot_flag = opt.each_loss_plot_flag#True
 test_flag = opt.test_flag#False
+train_flag = opt.train_flag
+savemodel_interval =  opt.savemodel_interval
 #100epoch組
 
 #netG = torch.load("Model/netG_20_Mode2.pth")
@@ -222,6 +226,9 @@ if(opt.checkpoint!='none'):
   optimizerD_Edge.load_state_dict(checkpoint['optimizerDe_state_dict'])
 #新しい形式でのモデルの読み込み
 
+#SummaryWriterの設定
+if(opt.writer != 'none'):
+  writer = SummaryWriter(log_dir="Writer/"+opt.writer)
 
 
 
@@ -610,7 +617,7 @@ def test(epoch,mode=0):
 
 
   flag_local = opt.flag_local#True
-  flag_edge = opt.flag_edget#False
+  flag_edge = opt.flag_edge#False
   flag_global = opt.flag_global #True
   #mode = 2 #いったんここで定義
 
@@ -628,8 +635,11 @@ def test(epoch,mode=0):
     iteration = 1
     for image_name in test_set.image_filenames:
       img = load_img(image_dir + image_name)
-      img = transform(img)
-      input = Variable(img).view(1,-1,256,256)
+      img.save(TestRealA_dir_+'/'+ str(epoch)+'_0_' +image_name) 
+      img = transform(img)#ここで色あせる
+      #img.save(TestRealA_dir_+'/'+ str(epoch)+'_1_' +image_name)
+      Plot2Image(img,TestRealA_dir_,'/'+ str(epoch)+'_1_' +image_name) 
+      input = img.view(1,3,256,256)#ここで輝度がおかしくなる
       #元イメージは壊す前に出力しておく
       Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name) 
       mask = mask_channel_float[0].view(1,-1,256,256) #ここが固定マスクなのは別に問題ではない節
@@ -637,11 +647,14 @@ def test(epoch,mode=0):
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
       fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
+      #Plot2Image(fake_b_raw,TestFakeB_Raw_dir_,'/'+ str(epoch)+'_'+image_name + 'Before'+ '_' + str(mode))
+
       fake_b_raw = fake_b_raw.detach()
       #fake_b_raw = fake_b_raw
       fake_b_image = input.clone()#元イメージを置き換える
       fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_raw[:,:,center-d:center+d,center-d:center+d]
       #テストエラーを作成する
+      #Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name + 'Before'+ '_' + str(mode))
 
       fake_b_image_raw_4d = torch.cat((fake_b_raw,mask),1) #catはメインループ内で許可
       
@@ -649,6 +662,7 @@ def test(epoch,mode=0):
       fake_masked = torch.masked_select(fake_b_raw, mask_channel_3d_b)
 
       real_masked = torch.masked_select(input, mask_channel_3d_b)
+      
       reconstruct_error = criterionMSE(fake_masked,real_masked)# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
       Mdpos_x = center
@@ -893,7 +907,7 @@ def tensor_plot2image(__input,name,iteration=1,mode=0):
   #print('saved testing image')
 
 def Plot2Image(__input,__dir,__name):
-  vutils.save_image(__input.detach(), __dir + '/' + __name + '.jpg')
+  vutils.save_image(__input, __dir + '/' + __name + '.jpg')
 
 def SaveModel(epoch,mode=0):
   if mode != 1:
@@ -955,23 +969,33 @@ def PlotError(epoch=1):
   #print(row) #rowは1行文の配列
   #row_float = float(row)
   #writer.add_scalar("Epoch",float(result_list[0]),epoch)
-    writer.add_scalar("Train_Loss_G",float(result_list[1]),epoch)
-    writer.add_scalar("Train_Loss_D",float(result_list[2]),epoch)
-    writer.add_scalar("Train_Loss_Dg_R",float(result_list[3]),epoch)
-    writer.add_scalar("Train_Loss_Dg_F",float(result_list[4]),epoch)
-    writer.add_scalar("Train_Loss_Dl_R",float(result_list[5]),epoch)
-    writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
-    writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
-    writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
-    if(test_flag):
-      writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
-      writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
-      writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
-      writer.add_scalar("Test_Loss_Dg_F",float(result_list[12]),epoch)
-      writer.add_scalar("Test_Loss_Dl_R",float(result_list[13]),epoch)
-      writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
-      writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
-      writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
+    if(train_flag):
+      writer.add_scalar("Train_Loss_G",float(result_list[1]),epoch)
+      writer.add_scalar("Train_Loss_D",float(result_list[2]),epoch)
+      writer.add_scalar("Train_Loss_Dg_R",float(result_list[3]),epoch)
+      writer.add_scalar("Train_Loss_Dg_F",float(result_list[4]),epoch)
+      writer.add_scalar("Train_Loss_Dl_R",float(result_list[5]),epoch)
+      writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
+      writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
+      writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
+      if(test_flag):
+        writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
+        writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
+        writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
+        writer.add_scalar("Test_Loss_Dg_F",float(result_list[12]),epoch)
+        writer.add_scalar("Test_Loss_Dl_R",float(result_list[13]),epoch)
+        writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
+        writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
+        writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
+    elif(test_flag):
+      writer.add_scalar("Test_Loss_G",float(result_list[0]),epoch)
+      writer.add_scalar("Test_Loss_D",float(result_list[1]),epoch)
+      writer.add_scalar("Test_Loss_Dg_R",float(result_list[2]),epoch)
+      writer.add_scalar("Test_Loss_Dg_F",float(result_list[3]),epoch)
+      writer.add_scalar("Test_Loss_Dl_R",float(result_list[4]),epoch)
+      writer.add_scalar("Test_Loss_Dl_F",float(result_list[5]),epoch)
+      writer.add_scalar("Test_Loss_De_R",float(result_list[6]),epoch)
+      writer.add_scalar("Test_Loss_De_F",float(result_list[7]),epoch)
 
 
 
@@ -1017,14 +1041,14 @@ PlotError(0)
 for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
-  train(epoch+1,mode=0)#Discriminatorのみ
+  if(train_flag):
+    train(epoch+1,mode=0)#Discriminatorのみ
   if(test_flag):
     test(epoch+1,0)
-  if((epoch+1) % 20 == 0):
+  if((epoch+1) % savemodel_interval == 0):
     #SaveModel(epoch+1,0)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
-  if((epoch+1) == 1):
-    SaveModel_Multiple(epoch+1,now_totalepoch,0)
+
   PlotError(now_totalepoch)
   now_totalepoch+=1
   
@@ -1034,15 +1058,15 @@ for epoch in range(gene_only_epoch):
 for epoch in range(disc_only_epoch):
 #discriminatorのtrain
 
-  train(epoch+1,mode=1)#Discriminatorのみ
+  if(train_flag):
+    train(epoch+1,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
   if(test_flag):
     test(epoch+1,1)
     
-  if((epoch+1) % 20 == 0):
+  if((epoch+1) % savemodel_interval == 0):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
-  if((epoch+1) == 1):
-    SaveModel_Multiple(epoch+1,now_totalepoch,0)
+
   PlotError(now_totalepoch)
   now_totalepoch+=1
 #if Test==True:
@@ -1050,16 +1074,17 @@ for epoch in range(disc_only_epoch):
 
 for epoch in range(total_epoch):
 #discriminatorのtrain
-  train(epoch+1,mode=2)#両方
+  if(train_flag):
+    train(epoch+1,mode=2)#両方
   if(test_flag):
     test(epoch+1,1)
 
-  if((epoch+1) % 20 == 0):
+  if((epoch+1) % savemodel_interval == 0):
 
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
 
-  if((epoch+1) == 1):
-    SaveModel_Multiple(epoch+1,now_totalepoch,0)
+
+
   PlotError(now_totalepoch)
   now_totalepoch+=1
 

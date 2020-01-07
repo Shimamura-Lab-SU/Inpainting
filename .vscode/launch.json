@@ -16,7 +16,8 @@
 
             "args":[
                 //新コマンドライン
-                "--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_139.tar","--flag_edge=0"
+                //"--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_379.tar","--flag_edge=0"
+                "--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1","--checkpoint=Model\\Models_1879.tar","--flag_edge=0","--test_flag=1","--train_flag=0","--writer=Test"
                 //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
                 //"--dataset=Inpainting_food" ,"--batchSize=10","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
             ]
