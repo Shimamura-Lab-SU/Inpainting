@@ -116,7 +116,7 @@ parser.add_argument('--test_flag', type=int, default=0)
 parser.add_argument('--train_flag', type=int, default=1)
 parser.add_argument('--writer',type=str,default='none')
 parser.add_argument('--savemodel_interval', type=int, default=20)
-
+parser.add_argument('--shuffle_flag',type=int,default=True)
 
 
 opt = parser.parse_args()
@@ -148,7 +148,7 @@ print('===> Loading datasets')
 root_path            = "dataset/"
 train_set            = get_training_set(root_path + opt.dataset)
 test_set             = get_test_set(root_path + opt.dataset)
-training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=False)
+training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=opt.shuffle_flag)
 #testing_data_loader  = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=opt.testBatchSize, shuffle=False)
 
 max_dataset_num = opt.train_N#500#データセットの数 (8000コ)
@@ -1044,7 +1044,8 @@ for epoch in range(gene_only_epoch):
   if(train_flag):
     train(epoch+1,mode=0)#Discriminatorのみ
   if(test_flag):
-    test(epoch+1,0)
+    if((epoch+1) % savemodel_interval == 0):
+      test(epoch+1,0)
   if((epoch+1) % savemodel_interval == 0):
     #SaveModel(epoch+1,0)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1062,7 +1063,8 @@ for epoch in range(disc_only_epoch):
     train(epoch+1,mode=1)#Discriminatorのみ
 #  checkpoint(epoch,1)
   if(test_flag):
-    test(epoch+1,1)
+    if((epoch+1) % savemodel_interval == 0):
+      test(epoch+1,1)
     
   if((epoch+1) % savemodel_interval == 0):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1077,7 +1079,8 @@ for epoch in range(total_epoch):
   if(train_flag):
     train(epoch+1,mode=2)#両方
   if(test_flag):
-    test(epoch+1,1)
+    if((epoch+1) % savemodel_interval == 0):
+      test(epoch+1,1)
 
   if((epoch+1) % savemodel_interval == 0):
 
