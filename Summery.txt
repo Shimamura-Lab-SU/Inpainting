@@ -1,0 +1,5 @@
+・イメージテンソル系(batchsize*channel*256*256)
+real_b ..完全な真値画像
+real_c ..中心部に64*64ピクセルの空白があり、その中が該当画像の平均画素で埋められている
+
+fake_c_raw.. real_cをGeneratorから

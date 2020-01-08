@@ -1,0 +1,172 @@
+    
+
+    #tensor_plot2image(real_a,'realA_0',iteration)
+    #tensor_plot2image(real_b,'realB_0',iteration)
+    #tensor_plot2image(fake_b_hallsize,'fakeB_0',iteration)
+    #vutils.save_image(real_a[0][0].detach(), '{}\\real_sample00_{:03d}.png'.format(os.getcwd() + '\\testing_output', epoch,normalize=True, nrow=8))
+     
+  
+    #fake_b = real_a
+#fakebの穴以外の箇所をrealaで上書きする
+    center = math.floor(image_size / 2)
+    d = math.floor(Local_Window / 4) #2→4(窓サイズの1/4)
+
+    fake_b = real_b.clone() #参照渡しになっていたものを値渡しに変更
+    #fake_b[:,:,center - d:center+d,center - d:center+d] = copy(fake_b_hallsize)
+
+    #fake_b = fake_b_hallsize
+
+    ############################
+    # (1) Update D network: maximize log(D(x,y)) + log(1 - D(x,G(x)))
+    # ペアで学習しているので　本物vsDiscriminator 偽物 vs Discriminator で執り行うのはどっちも同じ
+    ###########################
+    optimizerD_Global.zero_grad()
+    optimizerD_Local.zero_grad()
+    optimizerD_Edge.zero_grad()
+    # train with fake
+
+    #realAとFakebの穴周辺を切り出したものを用意する
+    center = math.floor(image_size / 2)
+    d = math.floor(Local_Window / 2) #trim(LocalDiscriminator用の窓)
+    d2 = math.floor(Local_Window / 4) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+
+    real_a_trim = copy(real_a[:,:,center-d:center+d,center-d:center+d]) 
+    real_b_trim = copy(real_b[:,:,center-d:center+d,center-d:center+d]) 
+    fake_b_trim = copy(fake_b[:,:,center-d:center+d,center-d:center+d])
+
+    real_a_trim2 = copy(real_a[:,:,center-d2:center+d2,center-d2:center+d2]) 
+    real_b_trim2 = copy(real_b[:,:,center-d2:center+d2,center-d2:center+d2]) 
+    fake_b_trim2 = copy(fake_b[:,:,center-d2:center+d2,center-d2:center+d2])
+
+
+    fake_ab = torch.cat((real_b, fake_b), 1)
+    fake_ab_trim = torch.cat((real_b_trim, fake_b_trim), 1)
+
+
+    #tensor_plot2image(real_a,'realA_1',iteration)
+    #tensor_plot2image(real_b,'realB_1',iteration)
+    #tensor_plot2image(fake_b,'fakeB_1',iteration)
+
+    #tensor_plot2image(real_a_trim,'realA_2',iteration)
+    #tensor_plot2image(real_b_trim,'realB_2',iteration)
+    #tensor_plot2image(fake_b_trim,'fakeB_2',iteration)
+    #tensorを画像として扱うor .. トリミングする (後者を選択?)
+
+    #reala,fakebのエッジ抽出
+    #real_a_trim_8bit = (real_a_trim/256).astype('unit8') 
+
+    #real_a_canny = cv2.Canny(real_a_trim, 100,600)
+    #fake_b_canny = cv2.Canny(fake_b_trim, 100,600)
+    #canny_ab = torch.cat((real_a_canny,fake_b_canny), 1)
+
+    detatched_trim = fake_ab_trim.detach()
+    detatched = fake_ab.detach()#detatched.shape ..[batchsize,6,256,256]
+    #detatched_canny = canny_ab.detach()
+    #グローバルDiscriminator
+
+
+    #pred_fakeG = netD_Global.forward(fake_ab.detach()) #pred_dakeが偽画像を一時保存している
+    #loss_d_fakeG = criterionGAN(pred_fakeG, False) #奥の引数はペアにした者が本か偽かを示すラベル
+
+    #ローカルDiscriminator
+    #pred_fakeL = netD_Local.forward(fake_ab_trim.detach()) #pred_dakeが偽画像を一時保存している
+    #loss_d_fakeL = criterionGAN(pred_fakeL, False)
+
+    #エッジDiscriminator(途中まで)
+    #pred_fakeE = netD_Edge.forward(detatched_canny) #pred_dakeが偽画像を一時保存している
+    #loss_d_fakeE = criterionGAN(pred_fakeE, False)
+
+    # train with real
+    #real_ab = torch.cat((real_b, real_b), 1) #torch.catはテンソルの連結splitの逆
+    #real_ab_trim = torch.cat((real_b_trim, real_b_trim), 1)
+    
+    #pred_realG = netD_Global.forward(real_ab.detach())
+    #loss_d_realG = criterionGAN(pred_realG, True)
+    #pred_realL = netD_Local.forward(real_ab_trim.detach())
+    #loss_d_realL = criterionGAN(pred_realL, True)
+    #pred_realE = netD_Edge.forward(real_ab)
+    #loss_d_realE = criterionGAN(pred_realE, True)
+    # Combined loss
+    #loss_d_fake = (loss_d_fakeG + loss_d_fakeL + loss_d_fakeE ) / 3 
+    #loss_d_real = (loss_d_realG + loss_d_realL + loss_d_realE ) / 3 
+    #loss_d_fake = (loss_d_fakeG + loss_d_fakeL) / 2
+    #loss_d_real = (loss_d_realG + loss_d_realL) / 2 
+
+    #loss_d = loss_d_fake + loss_d_real
+    #loss_d.backward(retain_graph=True)
+    #optimizerD_Global.step()
+    #optimizerD_Local.step()
+    #optimizerD_Edge.step()
+
+    ############################
+    # (2) Update G network: maximize log(D(x,G(x))) + L1(y,G(x))
+    ##########################
+   # optimizerG.zero_grad()
+    # First, G(A) should fake the discriminator
+    #fake_ab = torch.cat((real_a, fake_b), 1)
+    #real_ab = torch.cat((real_b,real_b), 1)
+
+    
+
+
+   # pred_fakeG = netD_Global.forward(fake_ab.detach()) 
+   # pred_fakeL = netD_Local.forward(fake_ab_trim.detach()) 
+ 
+   # true_tensor = false_tensor = torch.clone(pred_fakeG)
+   # true_tensor[:][:][:][:] = 1  #現状すべて0になっている
+   # false_tensor[:][:][:][:] = 0
+
+
+   # loss_g1 = criterionMSE(pred_fakeG, true_tensor)
+   # loss_g2 = criterionMSE(pred_fakeL, true_tensor) #lossを統一することによってGeneratorが正しく機能するか？
+
+#元々のジェネレータの作り。参考にすべし
+class Old_ResnetGenerator(nn.Module):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[]):
+        assert(n_blocks >= 0)
+        super(Old_ResnetGenerator, self).__init__()
+        self.input_nc = input_nc
+        self.output_nc = output_nc
+        self.ngf = ngf
+        self.gpu_ids = gpu_ids
+
+        #入力層
+        #model = [nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
+        #         norm_layer(ngf, affine=True),
+        #         nn.ReLU(True)]
+        model = [nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
+                 nn.ReLU(True),
+                 nn.Conv2d(input_nc, ngf, kernel_size=5, stride=1, padding=2,dilation=1),
+                 nn.ReLU(True)]
+        
+
+        n_downsampling = 2
+        for i in range(n_downsampling):
+            mult = 2**i
+            model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
+                                stride=2, padding=1),
+                      norm_layer(ngf * mult * 2, affine=True),
+                      nn.ReLU(True)]
+
+        mult = 2**n_downsampling
+        for i in range(n_blocks):
+            model += [ResnetBlock(ngf * mult, 'zero', norm_layer=norm_layer, use_dropout=use_dropout)]
+
+        for i in range(n_downsampling):
+            mult = 2**(n_downsampling - i)
+            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+                                         kernel_size=3, stride=2,
+                                         padding=1, output_padding=1),
+                      norm_layer(int(ngf * mult / 2), affine=True),
+                      nn.ReLU(True)]
+
+        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)]
+        model += [nn.Tanh()]
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, input):
+      if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+      else:
+        return self.model(input)
