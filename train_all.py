@@ -84,17 +84,6 @@ parser.add_argument('--ndf', type=int, default=64, help='discriminator filters i
 
 #こっからオリジナル
 
-#モデル,Optimizer系
-#parser.add_argument('--G_model', type=str, default='none', help='model file to useG')
-#parser.add_argument('--Dg_model', type=str, default='none', help='model file to useDg')
-#parser.add_argument('--Dl_model', type=str, default='none', help='model file to useDl')
-#parser.add_argument('--De_model', type=str, default='none', help='model file to useDe')
-
-#parser.add_argument('--G_Optim', type=str, default='none', help='model file to useG')
-#parser.add_argument('--Dg_Optim', type=str, default='none', help='model file to useDg')
-#parser.add_argument('--Dl_Optim', type=str, default='none', help='model file to useDl')
-#parser.add_argument('--De_Optim', type=str, default='none', help='model file to useDe')
-
 parser.add_argument('--checkpoint',type=str,default='none')
 
 #int
@@ -963,9 +952,9 @@ else:
 
 
 
-def PlotError(epoch=1):
+def PlotError(epoch=1,labelflag=False):
 
-  if(epoch!=0):
+  if(labelflag==False):
   #print(row) #rowは1行文の配列
   #row_float = float(row)
   #writer.add_scalar("Epoch",float(result_list[0]),epoch)
@@ -978,7 +967,7 @@ def PlotError(epoch=1):
       writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
       writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
       writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
-      if(test_flag):
+      if(test_flag and (epoch % savemodel_interval == 0)):
         writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
         writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
         writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
@@ -987,7 +976,7 @@ def PlotError(epoch=1):
         writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
         writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
         writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
-    elif(test_flag):
+    elif(test_flag and (epoch % savemodel_interval == 0)):
       writer.add_scalar("Test_Loss_G",float(result_list[0]),epoch)
       writer.add_scalar("Test_Loss_D",float(result_list[1]),epoch)
       writer.add_scalar("Test_Loss_Dg_R",float(result_list[2]),epoch)
@@ -996,23 +985,12 @@ def PlotError(epoch=1):
       writer.add_scalar("Test_Loss_Dl_F",float(result_list[5]),epoch)
       writer.add_scalar("Test_Loss_De_R",float(result_list[6]),epoch)
       writer.add_scalar("Test_Loss_De_F",float(result_list[7]),epoch)
-
-
-
-
-  with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
-    #writer = csv.writer(f)
-    #string = ''
-    #f.write('')
-    result_str = ",".join(map(str,result_list)) #カンマ区切りに直す
-    f.write(result_str + '\n')
-    #リストの中を取り出す
-    #for s in result_list:
-    #  string += str(s)
-    #  string += ','
-    #writer.writerows(string)
-  #リストを空にする
   result_list.clear()
+
+
+
+with open(Loss_dir_ + '/Command_Log.txt', 'a') as f:
+  f.write(str(opt))
 
 #最初のカラムを作成する
 result_list.append("Epoch[/n]")
@@ -1032,10 +1010,16 @@ result_list.append("Test_Loss_Dl_R")
 result_list.append("Test_Loss_Dl_F")
 result_list.append("Test_Loss_De_R")
 result_list.append("Test_Loss_De_F")
-PlotError(0)
+PlotError(0,labelflag=True)
 
 
-
+#コマンドライン引数の補完
+with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
+  #writer = csv.writer(f)
+  #string = ''
+  #f.write('')
+  result_str = ",".join(map(str,result_list)) #カンマ区切りに直す
+  f.write(result_str + '\n')
 
 
 for epoch in range(gene_only_epoch):

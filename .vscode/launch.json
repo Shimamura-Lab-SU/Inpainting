@@ -2,6 +2,7 @@
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
     "version": "0.2.0",
     "configurations": [
         
@@ -17,10 +18,59 @@
             "args":[
                 //新コマンドライン
                 //"--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_379.tar","--flag_edge=0"
-                "--batchSize=30","--epochsM0=80","--train_N=7500","--epochsM1=0","--checkpoint=Model\\Models_20.tar","--epochsM2=0","--flag_edge=0","--test_flag=0","--train_flag=1","--writer=Inpainting_7500_Shuffle2"
+                "--batchSize=10","--epochsM0=0","--train_N=500","--epochsM1=0","--checkpoint=Model\\Models_740.tar","--epochsM2=3000","--flag_edge=1","--test_flag=1","--train_flag=1","--writer=train_500_edge2"
+                ,"--shuffle_flag=0","--savemodel_interval=100"
+                //"--batchSize=10","--epochsM0=0","--train_N=7500","--epochsM1=0","--checkpoint=Model\\Models_120_7500N.tar","--epochsM2=1000","--flag_edge=0","--test_flag=0","--train_flag=1","--writer=Dammy"
                 //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
                 //"--dataset=Inpainting_food" ,"--batchSize=10","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
             ]
         }
     ]
 }
+
+/*
+    #パラメータ一覧
+    parser = argparse.ArgumentParser(description='a fork of pytorch pix2pix')
+    parser.add_argument('--dataset',type=str, default='Inpainting_food')
+    parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
+    
+    parser.add_argument('--epochsM0', type=int, default=50, help='number of epochs to train for M0')
+    parser.add_argument('--epochsM1', type=int, default=20, help='number of epochs to train for M1')
+    parser.add_argument('--epochsM2', type=int, default=1500, help='number of epochs to train for M2')
+    
+    parser.add_argument('--lr', type=float, default=0.0004, help='Learning Rate. Default=0.002') #1に変更'(0.0004)
+    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+    parser.add_argument('--cuda', action='store_true', default=True,help='use cuda?')
+    parser.add_argument('--threads', type=int, default=0, help='number of threads for data loader to use')
+    parser.add_argument('--seed', type=int, default=1297, help='random seed to use. Default=123')
+    
+    parser.add_argument('--input_nc', type=int, default=3, help='input image channels')
+    parser.add_argument('--output_nc', type=int, default=3, help='output image channels')
+    parser.add_argument('--ngf', type=int, default=64, help='generator filters in first conv layer')
+    parser.add_argument('--ndf', type=int, default=64, help='discriminator filters in first conv layer')
+    
+    #こっからオリジナル
+    
+    parser.add_argument('--checkpoint',type=str,default='none')
+    
+    #int
+    parser.add_argument('--train_N', type=int, default=500, help='DatasetNum')
+    parser.add_argument('--test_N', type=int, default=100, help='DatasetNum_Test')
+    #parser.add_argument('--now_totalepoch', type=int, default=1)
+    
+    #float
+    parser.add_argument('--disc_weight', type=float, default=0.0004)
+    
+    #Flag系
+    parser.add_argument('--flag_global', type=int, default=1)
+    parser.add_argument('--flag_local', type=int, default=1)
+    parser.add_argument('--flag_edge', type=int, default=1)
+    parser.add_argument('--each_loss_plot_flag', type=int, default=1)
+    parser.add_argument('--test_flag', type=int, default=0)
+    
+    #1/7追加
+    parser.add_argument('--train_flag', type=int, default=1)
+    parser.add_argument('--writer',type=str,default='none')
+    parser.add_argument('--savemodel_interval', type=int, default=20)
+    parser.add_argument('--shuffle_flag',type=int,default=True)
+*/
