@@ -952,7 +952,7 @@ else:
 
 
 
-def PlotError(epoch=1,labelflag=False):
+def PlotError(nowepoch,epoch=1,labelflag=False):
 
   if(labelflag==False):
   #print(row) #rowは1行文の配列
@@ -967,7 +967,7 @@ def PlotError(epoch=1,labelflag=False):
       writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
       writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
       writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
-      if(test_flag and (epoch % savemodel_interval == 0)):
+      if(test_flag and (nowepoch % savemodel_interval == 0)):
         writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
         writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
         writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
@@ -976,7 +976,7 @@ def PlotError(epoch=1,labelflag=False):
         writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
         writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
         writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
-    elif(test_flag and (epoch % savemodel_interval == 0)):
+    elif(test_flag and (nowepoch % savemodel_interval == 0)):
       writer.add_scalar("Test_Loss_G",float(result_list[0]),epoch)
       writer.add_scalar("Test_Loss_D",float(result_list[1]),epoch)
       writer.add_scalar("Test_Loss_Dg_R",float(result_list[2]),epoch)
@@ -1021,7 +1021,7 @@ with open(Loss_dir_ + '/loss_log_result.csv', 'a') as f:
   result_str = ",".join(map(str,result_list)) #カンマ区切りに直す
   f.write(result_str + '\n')
 
-
+epoch=0
 for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
@@ -1034,12 +1034,12 @@ for epoch in range(gene_only_epoch):
     #SaveModel(epoch+1,0)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
 
-  PlotError(now_totalepoch)
+  PlotError(epoch+1,now_totalepoch)
   now_totalepoch+=1
   
   
 
-
+epoch=0
 for epoch in range(disc_only_epoch):
 #discriminatorのtrain
 
@@ -1053,11 +1053,12 @@ for epoch in range(disc_only_epoch):
   if((epoch+1) % savemodel_interval == 0):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
 
-  PlotError(now_totalepoch)
+  PlotError(epoch+1,now_totalepoch)
   now_totalepoch+=1
 #if Test==True:
   #test(1)
 
+epoch=0
 for epoch in range(total_epoch):
 #discriminatorのtrain
   if(train_flag):
@@ -1072,7 +1073,7 @@ for epoch in range(total_epoch):
 
 
 
-  PlotError(now_totalepoch)
+  PlotError(epoch+1,now_totalepoch)
   now_totalepoch+=1
 
 writer.close()
