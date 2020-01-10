@@ -106,7 +106,8 @@ parser.add_argument('--train_flag', type=int, default=1)
 parser.add_argument('--writer',type=str,default='none')
 parser.add_argument('--savemodel_interval', type=int, default=20)
 parser.add_argument('--shuffle_flag',type=int,default=True)
-
+#1/10追加
+parser.add_argument('--test_interval',type = int ,default=20)
 
 opt = parser.parse_args()
 
@@ -155,6 +156,7 @@ each_loss_plot_flag = opt.each_loss_plot_flag#True
 test_flag = opt.test_flag#False
 train_flag = opt.train_flag
 savemodel_interval =  opt.savemodel_interval
+test_interval = opt.test_interval
 #100epoch組
 
 #netG = torch.load("Model/netG_20_Mode2.pth")
@@ -272,7 +274,7 @@ result_list = []
 
 
 
-def train(epoch,mode=0):
+def train(epoch,mode=0,total_epoch=0):
 
   center = math.floor(image_size / 2)
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
@@ -583,17 +585,17 @@ def train(epoch,mode=0):
       if(iteration == 1):
         #初回のみRealA
         if(epoch == 1):
-          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}_Mode{}".format(epoch,mode))
-        Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}_Mode{}".format(epoch,mode))
-        Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}_Mode{}".format(epoch,mode))
+          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}_Mode{}".format(total_epoch,mode))
+        Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}_Mode{}".format(total_epoch,mode))
+        Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}_Mode{}".format(total_epoch,mode))
         if(flag_edge==True):
-          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}_Mode{}".format(epoch,mode))
-
+          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}_Mode{}".format(total,mode))
+        
 
 
 
 #テスト側
-def test(epoch,mode=0):
+def test(epoch,mode=0,total_epoch = 0):
   loss_g_avg = 0
   loss_d_avg = 0
 
@@ -627,10 +629,10 @@ def test(epoch,mode=0):
       img.save(TestRealA_dir_+'/'+ str(epoch)+'_0_' +image_name) 
       img = transform(img)#ここで色あせる
       #img.save(TestRealA_dir_+'/'+ str(epoch)+'_1_' +image_name)
-      Plot2Image(img,TestRealA_dir_,'/'+ str(epoch)+'_1_' +image_name) 
+      #Plot2Image(img,TestRealA_dir_,'/'+ str(epoch)+'_1_' +image_name) 
       input = img.view(1,3,256,256)#ここで輝度がおかしくなる
       #元イメージは壊す前に出力しておく
-      Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name) 
+      #Plot2Image(input,TestRealA_dir_,'/'+ str(epoch)+'_' +image_name) 
       mask = mask_channel_float[0].view(1,-1,256,256) #ここが固定マスクなのは別に問題ではない節
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
@@ -743,8 +745,8 @@ def test(epoch,mode=0):
 
 
       #生成の結果のプロット       
-      Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(epoch)+'_'+image_name + '_' + str(mode))        
-      Plot2Image(edge_detection( fake_b_image,False),TestFakeB_Edge_dir_,'/'+ str(epoch) +'_'+image_name + '_' + str(mode))        
+      Plot2Image(fake_b_image,TestFakeB_dir_,'/'+ str(total_epoch)+'_'+image_name + '_' + str(mode))        
+      Plot2Image(edge_detection( fake_b_image,False),TestFakeB_Edge_dir_,'/'+ str(total_epoch) +'_'+image_name + '_' + str(mode))        
 
 
 
@@ -967,7 +969,7 @@ def PlotError(nowepoch,epoch=1,labelflag=False):
       writer.add_scalar("Train_Loss_Dl_F",float(result_list[6]),epoch)
       writer.add_scalar("Train_Loss_De_R",float(result_list[7]),epoch)
       writer.add_scalar("Train_Loss_De_F",float(result_list[8]),epoch)
-      if(test_flag and (nowepoch % savemodel_interval == 0)):
+      if(test_flag and (nowepoch % test_interval == 0)):
         writer.add_scalar("Test_Loss_G",float(result_list[9]),epoch)
         writer.add_scalar("Test_Loss_D",float(result_list[10]),epoch)
         writer.add_scalar("Test_Loss_Dg_R",float(result_list[11]),epoch)
@@ -976,7 +978,7 @@ def PlotError(nowepoch,epoch=1,labelflag=False):
         writer.add_scalar("Test_Loss_Dl_F",float(result_list[14]),epoch)
         writer.add_scalar("Test_Loss_De_R",float(result_list[15]),epoch)
         writer.add_scalar("Test_Loss_De_F",float(result_list[16]),epoch)
-    elif(test_flag and (nowepoch % savemodel_interval == 0)):
+    elif(test_flag and (nowepoch % test_interval == 0)):
       writer.add_scalar("Test_Loss_G",float(result_list[0]),epoch)
       writer.add_scalar("Test_Loss_D",float(result_list[1]),epoch)
       writer.add_scalar("Test_Loss_Dg_R",float(result_list[2]),epoch)
@@ -1026,10 +1028,10 @@ for epoch in range(gene_only_epoch):
 #discriminatorのtrain
 
   if(train_flag):
-    train(epoch+1,mode=0)#Discriminatorのみ
+    train(epoch+1,mode=0,total_epoch=now_totalepoch)#Discriminatorのみ
   if(test_flag):
-    if((epoch+1) % savemodel_interval == 0):
-      test(epoch+1,0)
+    if((epoch+1) % test_interval == 0):
+      test(epoch+1,0,total_epoch=now_totalepoch)
   if((epoch+1) % savemodel_interval == 0):
     #SaveModel(epoch+1,0)
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1044,11 +1046,11 @@ for epoch in range(disc_only_epoch):
 #discriminatorのtrain
 
   if(train_flag):
-    train(epoch+1,mode=1)#Discriminatorのみ
+    train(epoch+1,mode=1,total_epoch=now_totalepoch)#Discriminatorのみ
 #  checkpoint(epoch,1)
   if(test_flag):
-    if((epoch+1) % savemodel_interval == 0):
-      test(epoch+1,1)
+    if((epoch+1) % test_interval == 0):
+      test(epoch+1,1,total_epoch=now_totalepoch)
     
   if((epoch+1) % savemodel_interval == 0):
     SaveModel_Multiple(epoch+1,now_totalepoch,0)
@@ -1062,10 +1064,10 @@ epoch=0
 for epoch in range(total_epoch):
 #discriminatorのtrain
   if(train_flag):
-    train(epoch+1,mode=2)#両方
+    train(epoch+1,mode=2,total_epoch=now_totalepoch)#両方
   if(test_flag):
-    if((epoch+1) % savemodel_interval == 0):
-      test(epoch+1,1)
+    if((epoch+1) % test_interval == 0):
+      test(epoch+1,1,total_epoch=now_totalepoch)
 
   if((epoch+1) % savemodel_interval == 0):
 

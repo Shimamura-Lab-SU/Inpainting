@@ -12,3 +12,4 @@ Inpainting_train_allM1/
 Inpainting_train_all/
 *.tar
 Writer/
+*.svg

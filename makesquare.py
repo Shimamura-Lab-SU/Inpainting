@@ -74,14 +74,14 @@ def Get_Pathlists(soutai_dir):
 #file_list = np.full((2,1000),"")
 
 #パスを取得してその中からデータセットにすべきファイルをランダムに抽出する
-[path_list,file_list] = Get_Pathlists("./food_images/apple_pie") #ここでデータセットを指定する
+[path_list,file_list] = Get_Pathlists("./food_images/pizza") #ここでデータセットを指定する
 
     #print(file_list)
     #print(file_list)
 seed  = random.seed(1297)
-file_samples = random.sample(list(file_list),5) #抽出したい数
+file_samples = random.sample(list(file_list),1000) #抽出したい数
 seed  = random.seed(1297)
-path_samples = random.sample(list(path_list),5)
+path_samples = random.sample(list(path_list),1000)
 #print (path_samples)
 f = 10
 
