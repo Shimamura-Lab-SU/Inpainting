@@ -378,10 +378,13 @@ def train(epoch,mode=0,total_epoch=0):
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇〇(残りのパターンは省略)
       if (flag_global == True) and (flag_local == True) and (flag_edge == True):
-        #Concatを使って繋げる
-        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
-        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+        #Concat3を使って繋げる
+        #pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
+        #pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
         #
+        pred_realD = net_Concat3.forward3(pred_realD_Global,pred_realD_Local,pred_realD_Edge)
+        pred_fakeD = net_Concat3.forward3(pred_fakeD_Global,pred_fekeD_Local,pred_fakeD_Edge)
+
 
       #〇〇
       if (flag_global == True) and (flag_local == True) and (flag_edge == False):
@@ -391,12 +394,12 @@ def train(epoch,mode=0,total_epoch=0):
 
       #〇×
       if (flag_global == True) and (flag_local == False):
-        pred_realD = pred_realD_Global
-        pred_fakeD = pred_fakeD_Global
+        pred_realD = net_Concat1.forward1(pred_realD_Global)
+        pred_fakeD = net_Concat1.forward1(pred_fakeD_Global)
       #×〇
       if (flag_global == False) and (flag_local == True):
-        pred_realD = pred_realD_Global
-        pred_fakeD = pred_fakeD_Global
+        pred_realD = net_Concat1(pred_realD_Global)
+        pred_fakeD = net_Concat1(pred_fakeD_Global)
       
       #真偽はGPUに乗っける
       false_label_tensor = Variable(torch.LongTensor())
@@ -431,10 +434,7 @@ def train(epoch,mode=0,total_epoch=0):
       if mode == 1:
         loss_d = (loss_d_realD + loss_d_fakeD) 
       if mode == 2:
-        if (flag_edge == True):
-          loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
-        else:
-          loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
+        loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
       loss_d.backward()
 
@@ -680,9 +680,9 @@ def test(epoch,mode=0,total_epoch = 0):
         pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
 
       if (flag_global == True) and (flag_local == True) and (flag_edge == True):
-        #Concatを使って繋げる
-        pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
-        pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+
+        pred_realD = net_Concat3.forward3(pred_realD_Global,pred_realD_Local,pred_realD_Edge)
+        pred_fakeD = net_Concat3.forward3(pred_fakeD_Global,pred_fakeD_Local,pred_fakeD_Edge)
       #〇〇
       if (flag_global == True) and (flag_local == True) and (flag_edge == False):
         #Concatを使って繋げる
@@ -691,12 +691,12 @@ def test(epoch,mode=0,total_epoch = 0):
 
       #〇×
       if (flag_global == True) and (flag_local == False):
-        pred_realD = pred_realD_Global
-        pred_fakeD = pred_fakeD_Global
+        pred_realD = net_Concat.forward1(pred_realD_Global)
+        pred_fakeD = net_Concat.forward1(pred_fakeD_Global)
       #×〇
       if (flag_global == False) and (flag_local == True):
-        pred_realD = pred_realD_Global
-        pred_fakeD = pred_fakeD_Global
+        pred_realD = net_Concat1.forward1(pred_realD_Global)
+        pred_fakeD = net_Concat1.forward1(pred_fakeD_Global)
 
       false_label_tensor = Variable(torch.LongTensor())
       false_label_tensor  = torch.zeros(1,1)
@@ -711,12 +711,12 @@ def test(epoch,mode=0,total_epoch = 0):
       if (flag_global == True):
         pred_realD_Global = net_Concat1.forward1(pred_realD_Global)
         pred_fakeD_Global = net_Concat1.forward1(pred_fakeD_Global)
-        pred_realD_Local = net_Concat1.forward1(pred_realD_Local)
-        pred_fakeD_Local = net_Concat1.forward1(pred_fakeD_Local)
 
         loss_d_realD_Global = criterionBCE(pred_realD_Global, true_label_tensor) #min log(1-D)
         loss_d_fakeD_Global = criterionBCE(pred_fakeD_Global, false_label_tensor) #min logD
       if (flag_local == True):
+        pred_realD_Local = net_Concat1.forward1(pred_realD_Local)
+        pred_fakeD_Local = net_Concat1.forward1(pred_fakeD_Local)
         loss_d_realD_Local  = criterionBCE(pred_realD_Local, true_label_tensor)
         loss_d_fakeD_Local  = criterionBCE(pred_fakeD_Local, false_label_tensor)
 
@@ -731,10 +731,7 @@ def test(epoch,mode=0,total_epoch = 0):
       if mode == 1:
         loss_d = (loss_d_realD + loss_d_fakeD)  
       if mode == 2:
-        if (flag_edge == True):
-          loss_d = (loss_d_fakeD + loss_d_realD + loss_d_fakeD_Edge + loss_d_realD_Edge) * disc_weight
-        else:
-          loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
+        loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
 
       #最終的なロスの導出
