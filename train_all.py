@@ -108,8 +108,16 @@ parser.add_argument('--savemodel_interval', type=int, default=20)
 parser.add_argument('--shuffle_flag',type=int,default=True)
 #1/10追加
 parser.add_argument('--test_interval',type = int ,default=20)
+#1/11追加
+parser.add_argument('--netG_weight',type=float,default=1)
+parser.add_argument('--netDg_weight',type=float,default=1)
+parser.add_argument('--netDl_weight',type=float,default=)
+parser.add_argument('--netDe_weight',type=float,default=1)
+
 
 opt = parser.parse_args()
+
+
 
 #画像サイズまわりはここで整合性をとりながら入力すること
 hall_size = 64 # 穴の大きさ(pic)
@@ -205,10 +213,10 @@ if opt.cuda:
 
 
 
-optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr) # 
-optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr) #
-optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr) #
-optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr) #
+optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr * opt.netG_weight) # 
+optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr* opt.netDg_weight) #
+optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr* opt.netGl_weight) #
+optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr * opt.netGe_weight) #
 
 if(opt.checkpoint!='none'):
   optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
