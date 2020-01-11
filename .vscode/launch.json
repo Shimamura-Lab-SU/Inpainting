@@ -18,7 +18,7 @@
             "args":[
                 ////ピザデータセット最初から
                 "--dataset=Inpainting_pizza","--epochsM0=200","--epochsM1=20","--epochsM2=3000",
-                "--batchSize=10","--train_N=900","--test_N=100","--checkpoint=Model\\Pizza900_280.tar",
+                "--batchSize=10","--train_N=900","--test_N=100",//"--checkpoint=Model\\Pizza900_280.tar",
                 "--flag_edge=0","--test_flag=1","--writer=pizza900","--shuffle_flag=1","--savemodel_interval=100"
                 ,"--test_interval=20"
                 //新コマンドライン

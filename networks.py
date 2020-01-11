@@ -328,6 +328,18 @@ class Concatenation(nn.Module):
       model += [nn.Sigmoid()]
       self.model = nn.Sequential(*model)
 
+  def forward3(self, _global_input, _local_input, _edge_input):
+    #catで入寮同士をつなぐ
+    input = torch.cat((_global_input,_local_input,_edge_input),1)
+    input = input.view(-1,3072)
+    input = input.cuda()
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        input = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        input = self.model(input)
+    return input.cpu()
+
+
   def forward(self, _global_input, _local_input):
     #catで入寮同士をつなぐ
     input = torch.cat((_global_input,_local_input),1)

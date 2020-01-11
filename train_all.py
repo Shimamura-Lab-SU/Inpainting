@@ -111,7 +111,7 @@ parser.add_argument('--test_interval',type = int ,default=20)
 #1/11追加
 parser.add_argument('--netG_weight',type=float,default=1)
 parser.add_argument('--netDg_weight',type=float,default=1)
-parser.add_argument('--netDl_weight',type=float,default=)
+parser.add_argument('--netDl_weight',type=float,default=1)
 parser.add_argument('--netDe_weight',type=float,default=1)
 
 
@@ -184,7 +184,7 @@ netD_Edge     = define_D_Edge(2 , disc_outpuc_nc, opt.ndf,  [0]) #1/1 4→2
 #optimizerD_Local = torch.load("Model/OptimDl_20_Mode2.pth") # 
 #optimizerD_Edge = torch.load("Model/OptimDe_20_Mode2.pth") # 
 
-
+net_Concat3 = define_Concat(3072,1,[0])
 net_Concat = define_Concat(2048,1,[0])
 net_Concat1 = define_Concat(1024,1,[0])
 
@@ -203,6 +203,7 @@ if opt.cuda:
   netD_Local  = netD_Local.cuda()
   netD_Edge   = netD_Edge.cuda()
   netG = netG.cuda()#
+  net_Concat3 = net_Concat3.cuda()
   net_Concat = net_Concat.cuda()
   net_Concat1 = net_Concat1.cuda()
   #
@@ -215,8 +216,8 @@ if opt.cuda:
 
 optimizerG = optim.Adadelta(netG.parameters(), lr=opt.lr * opt.netG_weight) # 
 optimizerD_Global = optim.Adadelta(netD_Global.parameters(), lr=opt.lr* opt.netDg_weight) #
-optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr* opt.netGl_weight) #
-optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr * opt.netGe_weight) #
+optimizerD_Local = optim.Adadelta(netD_Local.parameters(), lr=opt.lr* opt.netDl_weight) #
+optimizerD_Edge = optim.Adadelta(netD_Edge.parameters(), lr=opt.lr * opt.netDe_weight) #
 
 if(opt.checkpoint!='none'):
   optimizerG.load_state_dict(checkpoint['optimizerG_state_dict'])
@@ -380,6 +381,7 @@ def train(epoch,mode=0,total_epoch=0):
         #Concatを使って繋げる
         pred_realD = net_Concat(pred_realD_Global,pred_realD_Local)
         pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
+        #
 
       #〇〇
       if (flag_global == True) and (flag_local == True) and (flag_edge == False):
