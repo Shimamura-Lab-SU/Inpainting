@@ -371,7 +371,7 @@ def train(epoch,mode=0,total_epoch=0):
       #12/17optimizerをzero_gradする
       #128*128の窓を作成 (あとで裏に回れるようにする)
       #真画像とマスクの結合..4次元に
-      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,opt.batchSize) # C(x,Mc) #ここをnetGの機能にする
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,Mcpos_x,Mcpos_y,opt.batchSize) # C(x,Mc) #ここをnetGの機能にする
       
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
       #fake_b_image_raw_4d = fake_b_image_raw_4d.cuda()
@@ -379,13 +379,13 @@ def train(epoch,mode=0,total_epoch=0):
 
       if flag_local:
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
-        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = Mcpos_x,_yposC = Mcpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
       if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,_xposC = Mcpos_x,_yposC = Mcpos_y,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
       if flag_edge:
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
-        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = Mcpos_x,_yposC = Mcpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
 
       #pred_fakeは偽生成画像を入力としたときの尤度テンソル
       #〇〇〇(残りのパターンは省略)
@@ -469,7 +469,7 @@ def train(epoch,mode=0,total_epoch=0):
     if mode==0 or mode==2:
       
       #optimizerG.zero_grad()
-      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,opt.batchSize) # C(x,Mc)
+      fake_b_image_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,Mcpos_x,Mcpos_y,opt.batchSize) # C(x,Mc)
       #fake_b_image = real_a_image.clone()
       #fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
       fake_b_image_raw_4d = torch.cat((fake_b_image_raw,mask_channel_float),1) #catはメインループ内で許可
@@ -478,11 +478,11 @@ def train(epoch,mode=0,total_epoch=0):
       #2ndDiscriminator
       if mode == 2:
         if flag_global: 
-          pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+          pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,_xposC = Mcpos_x,_yposC = Mcpos_y,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         if flag_local:
-          pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+          pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = Mcpos_x,_yposC = Mcpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
         if flag_edge:
-          pred_fakeD_Edge = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+          pred_fakeD_Edge = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = Mcpos_x,_yposC = Mcpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
           
         #pred_fakeは偽生成画像を入力としたときの尤度テンソル
         #〇〇〇
@@ -634,9 +634,9 @@ def test(epoch,mode=0,total_epoch = 0):
   flag_global = opt.flag_global #True
   #mode = 2 #いったんここで定義
 
-  center = math.floor(image_size / 2)
-  d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-  d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+  #center = math.floor(image_size / 2)
+  #d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
+  #d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
   image_dir = "dataset/{}/test/b/".format(opt.dataset)
       #####################################################################
     #一定の周期でテストを行う 
@@ -659,7 +659,7 @@ def test(epoch,mode=0,total_epoch = 0):
 
       real_a_image_4d = torch.cat((input,mask),1) #ここ固定マスクじゃない?(12/25)
 
-      fake_b_raw = netG.forwardWithMasking(real_a_image_4d,hall_size,1)
+      fake_b_raw = netG.forwardWithMasking(real_a_image_4d,center,center,hall_size,1)
       #Plot2Image(fake_b_raw,TestFakeB_Raw_dir_,'/'+ str(epoch)+'_'+image_name + 'Before'+ '_' + str(mode))
 
       fake_b_raw = fake_b_raw.detach()
@@ -683,13 +683,13 @@ def test(epoch,mode=0,total_epoch = 0):
 
       if flag_local:
         pred_realD_Local  =  netD_Local.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
-        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Local = netD_Local.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = center,_yposC = center,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
       if flag_global:
-        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Global = netD_Global.forwardWithCover(fake_b_image_raw_4d.detach(),_input_real = real_a_image_4d,_xposC = center,_yposC = center,hole_size = hall_size) #pred_falke=D(C(x,Mc),Mc)
         pred_realD_Global =  netD_Global.forward(real_a_image_4d.detach())
       if flag_edge:
         pred_realD_Edge  = netD_Edge.forwardWithTrim(real_a_image_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,batchSize = opt.batchSize)
-        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
+        pred_fakeD_Edge  = netD_Edge.forwardWithTrimCover(fake_b_image_raw_4d.detach(),_xpos = Mdpos_x,_ypos = Mdpos_y,_xposC = center,_yposC = center,trim_size = Local_Window,_input_real = real_a_image_4d,hole_size = hall_size,batchSize = opt.batchSize) #pred_falke=D(C(x,Mc),Mc)
 
       if (flag_global == True) and (flag_local == True) and (flag_edge == True):
 
