@@ -79,8 +79,8 @@ parser.add_argument('--seed', type=int, default=1297, help='random seed to use. 
 
 parser.add_argument('--input_nc', type=int, default=3, help='input image channels')
 parser.add_argument('--output_nc', type=int, default=3, help='output image channels')
-parser.add_argument('--ngf', type=int, default=64, help='generator filters in first conv layer')
-parser.add_argument('--ndf', type=int, default=64, help='discriminator filters in first conv layer')
+parser.add_argument('--ngf', type=int, default=48, help='generator filters in first conv layer')
+parser.add_argument('--ndf', type=int, default=48, help='discriminator filters in first conv layer')
 
 #こっからオリジナル
 
@@ -116,20 +116,20 @@ parser.add_argument('--netDe_weight',type=float,default=1)
 
 #1/15追加
 parser.add_argument('--Mc_Shuffle',type=int,default=0)
-
+parser.add_argument('--holeSize',type=int)
 opt = parser.parse_args()
 
 
 
 #画像サイズまわりはここで整合性をとりながら入力すること
-hall_size = 64 # 穴の大きさ(pic)
-Local_Window = 128 #ローカルDiscが参照する範囲の大きさ(pic)
+hall_size = opt.holeSize #基本64 穴の大きさ(pic)
+Local_Window = opt.holeSize * 2 #ローカルDiscが参照する範囲の大きさ(pic)
 image_size = 256 #入力画像全体のサイズ
 #mask_channelは1*256*256の白黒マスク
 center = 128#奇数の場合は切り捨てる 
-d = 32 #生成窓の半分の大きさ
-d2 =  64#LocalDiscriminator窓の半分の大きさ
-padding = 64 #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
+d = math.floor(opt.holeSize / 2) #生成窓の半分の大きさ
+d2 =  opt.holeSize#LocalDiscriminator窓の半分の大きさ
+padding = opt.holeSize #Mdが窓を生成し得る位置がが端から何ピクセル離れているか 
 
 disc_weight = opt.disc_weight#0.0004
 
@@ -287,9 +287,9 @@ result_list = []
 
 def train(epoch,mode=0,total_epoch=0):
 
-  center = math.floor(image_size / 2)
-  d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
-  d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
+  #center = math.floor(image_size / 2)
+  #d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
+  #d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
 
   epoch_start_time = time.time()
@@ -324,7 +324,7 @@ def train(epoch,mode=0,total_epoch=0):
 
     #Mcの位置
     if(opt.Mc_Shuffle):
-      Mcpos_x,Mcpos_y = Set_Md(seed)
+      Mcpos_x,Mcpos_y = Set_Md(seed,hall_size=opt.holeSize)
     else:
       Mcpos_x = center
       Mcpos_y = center
@@ -335,7 +335,7 @@ def train(epoch,mode=0,total_epoch=0):
 
     #Mdの位置
 
-    Mdpos_x,Mdpos_y = Set_Md(seed)
+    Mdpos_x,Mdpos_y = Set_Md(seed,hall_size=opt.holeSize)
     #Mdを↑の位置に当てはめる
     
     random_mask_float_64 = Set_Masks(image_size,Mdpos_x,Mdpos_y,hall_size,torch.float32,batchSize=opt.batchSize)
@@ -607,7 +607,7 @@ def train(epoch,mode=0,total_epoch=0):
       if(iteration == 1):
         #初回のみRealA
         if(epoch == 1):
-          Plot2Image(real_a_image,TrainRealA_dir_,"/fakeA{}_Mode{}".format(total_epoch,mode))
+          Plot2Image(real_a_image,TrainRealA_dir_,"/realA{}_Mode{}".format(total_epoch,mode))
         Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}_Mode{}".format(total_epoch,mode))
         Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}_Mode{}".format(total_epoch,mode))
         if(flag_edge==True):
