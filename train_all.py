@@ -114,6 +114,8 @@ parser.add_argument('--netDg_weight',type=float,default=1)
 parser.add_argument('--netDl_weight',type=float,default=1)
 parser.add_argument('--netDe_weight',type=float,default=1)
 
+#1/15追加
+parser.add_argument('--Mc_Shuffle',type=int,default=0)
 
 opt = parser.parse_args()
 
@@ -289,8 +291,6 @@ def train(epoch,mode=0,total_epoch=0):
   d = math.floor(Local_Window / 4) #trim(LocalDiscriminator用の窓)
   d2 = math.floor(Local_Window / 2) #L1Loss用の純粋な生成画像と同じサイズの窓用,所謂Mc
 
-  mask_channel_boolen = Set_Masks(image_size,center,center,hall_size,bool,batchSize=opt.batchSize)
-  mask_channel_float = Set_Masks(image_size,center,center,hall_size,batchSize=opt.batchSize)
 
   epoch_start_time = time.time()
   #loss_plot_array = np.zeros(int(opt.batchSize / max_dataset_num),4) # 1エポックごとにロスを書き込む
@@ -322,7 +322,19 @@ def train(epoch,mode=0,total_epoch=0):
     #ランダムマスクの作成
     #####################################################################
 
+    #Mcの位置
+    if(opt.Mc_Shuffle):
+      Mcpos_x,Mcpos_y = Set_Md(seed)
+    else:
+      Mcpos_x = center
+      Mcpos_y = center
+
+    mask_channel_boolen = Set_Masks(image_size,Mcpos_x,Mcpos_y,hall_size,bool,batchSize=opt.batchSize)
+    mask_channel_float = Set_Masks(image_size,Mcpos_x,Mcpos_y,hall_size,batchSize=opt.batchSize)
+
+
     #Mdの位置
+
     Mdpos_x,Mdpos_y = Set_Md(seed)
     #Mdを↑の位置に当てはめる
     
@@ -383,7 +395,7 @@ def train(epoch,mode=0,total_epoch=0):
         #pred_fakeD = net_Concat(pred_fakeD_Global,pred_fakeD_Local)
         #
         pred_realD = net_Concat3.forward3(pred_realD_Global,pred_realD_Local,pred_realD_Edge)
-        pred_fakeD = net_Concat3.forward3(pred_fakeD_Global,pred_fekeD_Local,pred_fakeD_Edge)
+        pred_fakeD = net_Concat3.forward3(pred_fakeD_Global,pred_fakeD_Local,pred_fakeD_Edge)
 
 
       #〇〇
@@ -517,7 +529,7 @@ def train(epoch,mode=0,total_epoch=0):
       optimizerG.step()
       #plotようにreal_aを貼り付けたもの
       fake_b_image = real_a_image.clone()
-      fake_b_image[:,:,center-d:center+d,center-d:center+d] = fake_b_image_raw[:,:,center-d:center+d,center-d:center+d] 
+      fake_b_image[:,:,Mcpos_x-d:Mcpos_x+d,Mcpos_y-d:Mcpos_y+d] = fake_b_image_raw[:,:,Mcpos_x-d:Mcpos_x+d,Mcpos_y-d:Mcpos_y+d] 
 
 
       loss_plot_array[iteration-1][0] = epoch
@@ -599,7 +611,7 @@ def train(epoch,mode=0,total_epoch=0):
         Plot2Image(fake_b_image_raw,TrainFakeB_Raw_dir_,"/fakeB_Raw_{}_Mode{}".format(total_epoch,mode))
         Plot2Image(fake_b_image,TrainFakeB_dir_,"/fakeB_{}_Mode{}".format(total_epoch,mode))
         if(flag_edge==True):
-          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}_Mode{}".format(total,mode))
+          Plot2Image(edge_detection( fake_b_image,False),TrainFakeB_Edge_dir_,"/fakeB_Edge_{}_Mode{}".format(total_epoch,mode))
         
 
 
