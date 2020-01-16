@@ -16,17 +16,11 @@
             "console": "integratedTerminal",
 
             "args":[
+                "--dataset=Inpainting_pizza","--epochsM0=0","--epochsM1=20","--epochsM2=3000",
+                "--batchSize=10","--train_N=900","--test_N=100","--checkpoint=Model\\Pizza900_200S.tar",
+                "--flag_edge=0","--test_flag=1","--writer=pizza900_McS","--shuffle_flag=1","--savemodel_interval=10"
+                ,"--test_interval=100","--netDe_weight=0.1" ,"--Mc_Shuffle=1","--holeSize=64","--ngf=64","--ndf=64"            //新コマンドライン
                 ////ピザデータセット最初から
-                "--dataset=Inpainting_pizza9000","--epochsM0=0","--epochsM1=10","--epochsM2=3000",
-                "--batchSize=10","--train_N=9000","--test_N=100","--checkpoint=Model\\Pizza9000_50.tar",
-                "--flag_edge=1","--test_flag=1","--writer=pizza9000","--shuffle_flag=1","--savemodel_interval=10"
-                ,"--test_interval=10","--netDe_weight=0.1" ,"--Mc_Shuffle=1","--holeSize=64","--ngf=64","--ndf=64"            //新コマンドライン
-                //"--batchSize=10","--epochsM0=0","--epochsM1=0","--epochsM2=1500","--checkpoint=Model\\Models_379.tar","--flag_edge=0"
-                //"--batchSize=10","--epochsM0=0","--train_N=500","--epochsM1=0","--checkpoint=Model\\Models_2540.tar","--epochsM2=3000","--flag_edge=1","--test_flag=1","--train_flag=1","--writer=train_500_edge3"
-                //,"--shuffle_flag=0","--savemodel_interval=100"
-                //"--batchSize=10","--epochsM0=0","--train_N=7500","--epochsM1=0","--checkpoint=Model\\Models_120_7500N.tar","--epochsM2=1000","--flag_edge=0","--test_flag=0","--train_flag=1","--writer=Dammy"
-                //"--dataset=Inpainting" ,"--model=checkpoint/Inpainting/netG_model_epoch_50.pth","--cuda"
-                //"--dataset=Inpainting_food" ,"--batchSize=10","--testBatchSize=15","--nEpochs=200","--cuda","--threads=0"
             ]
         }
     ]
