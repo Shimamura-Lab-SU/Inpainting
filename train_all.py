@@ -518,14 +518,12 @@ def train(epoch,mode=0,total_epoch=0):
       #fake_b_image_masked =  #GPU回避不可能？
       #real_a_image_masked =  #1次元で(61440)出てくるので..
       real_a_3d = real_a_image_4d[:,0:3,:,:]
-      reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
+      reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b),False))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
-      if(opt.flag_edge == True and opt.flag_edgeRec == True):
-        reconstruct_errorEdge = criterionMSE(edge_detection(fake_masked,False),edge_detection(real_masked,False)
-      else:
-        reconstruct_errorEdge = 0
-
-      if(opt.flag_edge == True and opt.flag_edgeRec == True):
+      reconstruct_errorEdge = 0
+      if flag_edge == True and opt.flag_edgeRec == True:
+        reconstruct_errorEdge = criterionMSE(edge_detection(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),False),edge_detection(torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b),False))
+      if((opt.flag_edge == True) and (opt.flag_edgeRec == True)):
         loss_g = reconstruct_error *0.5 + reconstruct_errorEdge * 0.5
       else:
         loss_g = reconstruct_error
