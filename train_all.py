@@ -305,6 +305,7 @@ def train(epoch,mode=0,total_epoch=0):
   flag_edge   = opt.flag_edge#False
 
   loss_g_rec = 0
+  loss_g_recEdge = 0
   loss_g_avg = 0
   loss_d_avg = 0
   #------------
@@ -515,7 +516,15 @@ def train(epoch,mode=0,total_epoch=0):
       real_a_3d = real_a_image_4d[:,0:3,:,:]
       reconstruct_error = criterionMSE(torch.masked_select(fake_b_image_raw, mask_channel_3d_b),torch.masked_select(real_a_image_4d[:,0:3,:,:], mask_channel_3d_b))# 生成画像とオリジナルの差
       #fake_D_predを用いたエラー
-      loss_g = reconstruct_error
+      if(opt.flag_edge == True):
+        reconstruct_errorEdge = criterionMSE(edge_detection(fake_masked,False),edge_detection(real_masked,False)
+      else:
+        reconstruct_errorEdge = 0
+
+      if(opt.flag_edge == True):
+        loss_g = reconstruct_error *0.5 + reconstruct_errorEdge * 0.5
+      else:
+        loss_g = reconstruct_error
       #最初のiterなら記録する (4桁)
 
       if mode == 2:
@@ -542,6 +551,7 @@ def train(epoch,mode=0,total_epoch=0):
         loss_plot_array[iteration-1][3] = loss_d
 
       loss_g_rec += reconstruct_error
+      loss_g_recEdge += reconstruct_errorEdge
       loss_g_avg += loss_g.detach()
     if(mode != 0):
       loss_d_avg += loss_d.detach()
@@ -559,16 +569,19 @@ def train(epoch,mode=0,total_epoch=0):
     if(iteration ==  (max_dataset_num / opt.batchSize) ):
       loss_g_avg = loss_g_avg / iteration
       loss_g_rec = loss_g_rec / iteration
+      loss_g_recEdge = loss_g_recEdge / iteration
       if(mode == 1 or mode == 2):
         loss_d_avg = loss_d_avg / iteration
       result_list.append('{:.4g}'.format(loss_g_avg))
       result_list.append('{:.4g}'.format(loss_g_rec))
+      result_list.append('{:.4g}'.format(loss_g_recEdge))
       if(mode == 1 or mode == 2):
         result_list.append('{:.4g}'.format(loss_d_avg))
       if(mode == 1 or mode == 2):
         loss_d_avg = 0
         loss_g_avg = 0
         loss_g_rec = 0
+        loss_g_recEdge = 0
         #フラグが有効なら個別のロスを記録する
       if(each_loss_plot_flag and mode != 0):
         loss_dg_r_avg = loss_dg_r_avg / iteration 
@@ -623,6 +636,7 @@ def train(epoch,mode=0,total_epoch=0):
 #テスト側
 def test(epoch,mode=0,total_epoch = 0):
   loss_g_rec = 0
+  loss_g_recEdge = 0
   loss_g_avg = 0
   loss_d_avg = 0
 
@@ -682,6 +696,11 @@ def test(epoch,mode=0,total_epoch = 0):
       real_masked = torch.masked_select(input, mask_channel_3d_b)
       
       reconstruct_error = criterionMSE(fake_masked,real_masked)# 生成画像とオリジナルの差
+      #エッジのReconstructErrorを取り入れる
+      if(opt.flag_edge == True):
+        reconstruct_errorEdge = criterionMSE(edge_detection(fake_masked,False),edge_detection(real_masked,False)
+      else:
+        reconstruct_errorEdge = 0
       #fake_D_predを用いたエラー
       Mdpos_x = center
       Mdpos_y = center#12/31 テストのマスクは固定で中央にしてみる
@@ -751,8 +770,12 @@ def test(epoch,mode=0,total_epoch = 0):
         loss_d = (loss_d_fakeD + loss_d_realD) * disc_weight
     #backward
 
+      
       #最終的なロスの導出
-      test_loss_g = reconstruct_error
+      if(opt.flag_edge == True):
+        test_loss_g = reconstruct_error * 0.5 + reconstruct_errorEdge * 0.5
+      else:
+        test_loss_g = reconstruct_error
       #LossG用のLossの導出
       if (mode == 2):
         loss_d_fakeD_ForG = disc_weight * criterionBCE(pred_fakeD, true_label_tensor) #min log(1-D)
@@ -775,6 +798,7 @@ def test(epoch,mode=0,total_epoch = 0):
 
 
       loss_g_rec += reconstruct_error
+      loss_g_recEdge = reconstruct_errorEdge
       loss_g_avg += test_loss_g.detach()
       if(mode == 1 or mode == 2):
         loss_d_avg += test_loss_d.detach()
@@ -791,16 +815,19 @@ def test(epoch,mode=0,total_epoch = 0):
       if(iteration ==  (max_test_dataset_num)):
         loss_g_avg = loss_g_avg / iteration
         loss_g_rec = loss_g_rec / iteration
+        loss_g_recEdge = loss_g_recEdge / iteration
         if(mode == 1 or mode == 2):
           loss_d_avg = loss_d_avg / iteration
         result_list.append('{:.4g}'.format(loss_g_avg))
         result_list.append('{:.4g}'.format(loss_g_rec))
+        result_list.append('{:.4g}'.format(loss_g_recEdge))
         if(mode == 1 or mode == 2):
           result_list.append('{:.4g}'.format(loss_d_avg))
         if(mode == 1 or mode == 2):
           loss_d_avg = 0
         loss_g_avg = 0
         loss_g_rec = 0
+        loss_g_recEdge = 0
         #フラグが有効なら個別のロスを記録する
         if(each_loss_plot_flag and mode != 0):
           loss_dg_r_avg = loss_dg_r_avg / iteration 
@@ -990,33 +1017,35 @@ def PlotError(nowepoch,epoch=1,labelflag=False):
     if(train_flag):
       writer.add_scalar("Train_Loss_G",float(result_list[1]),epoch)
       writer.add_scalar("Train_Loss_REC",float(result_list[2]),epoch)
-      writer.add_scalar("Train_Loss_D",float(result_list[3]),epoch)
-      writer.add_scalar("Train_Loss_Dg_R",float(result_list[4]),epoch)
-      writer.add_scalar("Train_Loss_Dg_F",float(result_list[5]),epoch)
-      writer.add_scalar("Train_Loss_Dl_R",float(result_list[6]),epoch)
-      writer.add_scalar("Train_Loss_Dl_F",float(result_list[7]),epoch)
-      writer.add_scalar("Train_Loss_De_R",float(result_list[8]),epoch)
-      writer.add_scalar("Train_Loss_De_F",float(result_list[9]),epoch)
+      writer.add_scalar("Train_Loss_REC_Edge",float(result_list[3]),epoch)
+      writer.add_scalar("Train_Loss_D",float(result_list[4]),epoch)
+      writer.add_scalar("Train_Loss_Dg_R",float(result_list[5]),epoch)
+      writer.add_scalar("Train_Loss_Dg_F",float(result_list[6]),epoch)
+      writer.add_scalar("Train_Loss_Dl_R",float(result_list[7]),epoch)
+      writer.add_scalar("Train_Loss_Dl_F",float(result_list[8]),epoch)
+      writer.add_scalar("Train_Loss_De_R",float(result_list[9]),epoch)
+      writer.add_scalar("Train_Loss_De_F",float(result_list[10]),epoch)
       if(test_flag and (nowepoch % test_interval == 0)):
-        writer.add_scalar("Test_Loss_G",float(result_list[10]),epoch)
-        writer.add_scalar("Test_Loss_REC",float(result_list[11]),epoch)
-        writer.add_scalar("Test_Loss_D",float(result_list[12]),epoch)
-        writer.add_scalar("Test_Loss_Dg_R",float(result_list[13]),epoch)
-        writer.add_scalar("Test_Loss_Dg_F",float(result_list[14]),epoch)
-        writer.add_scalar("Test_Loss_Dl_R",float(result_list[15]),epoch)
-        writer.add_scalar("Test_Loss_Dl_F",float(result_list[16]),epoch)
-        writer.add_scalar("Test_Loss_De_R",float(result_list[17]),epoch)
-        writer.add_scalar("Test_Loss_De_F",float(result_list[18]),epoch)
+        writer.add_scalar("Test_Loss_G",float(result_list[11]),epoch)
+        writer.add_scalar("Test_Loss_REC",float(result_list[12]),epoch)
+        writer.add_scalar("Test_Loss_D",float(result_list[13]),epoch)
+        writer.add_scalar("Test_Loss_Dg_R",float(result_list[14]),epoch)
+        writer.add_scalar("Test_Loss_Dg_F",float(result_list[15]),epoch)
+        writer.add_scalar("Test_Loss_Dl_R",float(result_list[16]),epoch)
+        writer.add_scalar("Test_Loss_Dl_F",float(result_list[17]),epoch)
+        writer.add_scalar("Test_Loss_De_R",float(result_list[18]),epoch)
+        writer.add_scalar("Test_Loss_De_F",float(result_list[19]),epoch)
     elif(test_flag and (nowepoch % test_interval == 0)):
       writer.add_scalar("Test_Loss_G",float(result_list[0]),epoch)
       writer.add_scalar("Test_Loss_REC",float(result_list[1]),epoch)
-      writer.add_scalar("Test_Loss_D",float(result_list[2]),epoch)
-      writer.add_scalar("Test_Loss_Dg_R",float(result_list[3]),epoch)
-      writer.add_scalar("Test_Loss_Dg_F",float(result_list[4]),epoch)
-      writer.add_scalar("Test_Loss_Dl_R",float(result_list[5]),epoch)
-      writer.add_scalar("Test_Loss_Dl_F",float(result_list[6]),epoch)
-      writer.add_scalar("Test_Loss_De_R",float(result_list[7]),epoch)
-      writer.add_scalar("Test_Loss_De_F",float(result_list[8]),epoch)
+      writer.add_scalar("Train_Loss_REC_Edge",float(result_list[2]),epoch)
+      writer.add_scalar("Test_Loss_D",float(result_list[3]),epoch)
+      writer.add_scalar("Test_Loss_Dg_R",float(result_list[4]),epoch)
+      writer.add_scalar("Test_Loss_Dg_F",float(result_list[5]),epoch)
+      writer.add_scalar("Test_Loss_Dl_R",float(result_list[6]),epoch)
+      writer.add_scalar("Test_Loss_Dl_F",float(result_list[7]),epoch)
+      writer.add_scalar("Test_Loss_De_R",float(result_list[8]),epoch)
+      writer.add_scalar("Test_Loss_De_F",float(result_list[9]),epoch)
   result_list.clear()
 
 

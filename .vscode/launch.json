@@ -16,10 +16,11 @@
             "console": "integratedTerminal",
 
             "args":[
-                "--dataset=Inpainting_pizza","--epochsM0=0","--epochsM1=20","--epochsM2=3000",
-                "--batchSize=10","--train_N=900","--test_N=100","--checkpoint=Model\\Pizza900_200S.tar",
-                "--flag_edge=0","--test_flag=1","--writer=pizza900_McS","--shuffle_flag=1","--savemodel_interval=10"
-                ,"--test_interval=100","--netDe_weight=0.1" ,"--Mc_Shuffle=1","--holeSize=64","--ngf=64","--ndf=64"            //新コマンドライン
+                "--dataset=Inpainting_pizza9000","--epochsM0=200","--epochsM1=50","--epochsM2=3000",
+                "--batchSize=10","--train_N=9000","--test_N=100",//"--checkpoint=Model\\Pizza900_820.tar",
+                "--flag_edge=1","--test_flag=1","--writer=pizza9000_0120","--shuffle_flag=0","--savemodel_interval=10"
+                ,"--test_interval=10","--netDe_weight=0.1" ,"--Mc_Shuffle=0","--holeSize=64","--ngf=64","--ndf=64"            //新コマンドライン
+
                 ////ピザデータセット最初から
             ]
         }
