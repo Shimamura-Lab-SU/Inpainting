@@ -17,7 +17,7 @@
 
             "args":[
                 "--dataset=Inpainting_pizza","--epochsM0=200","--epochsM1=20","--epochsM2=1000",
-                "--batchSize=10","--train_N=900","--test_N=100",//"--checkpoint=Model\\Pizza900_820.tar",
+                "--batchSize=10","--train_N=500","--test_N=100",//"--checkpoint=Model\\Pizza900_820.tar",
                 "--flag_edge=1","--test_flag=1","--writer=pizza900_Recedge","--shuffle_flag=0","--savemodel_interval=10"
                 //,"--flag_edgeRec=1"
                 ,"--test_interval=10","--netDe_weight=0.1" ,"--Mc_Shuffle=0","--holeSize=64","--ngf=64","--ndf=64"            //新コマンドライン

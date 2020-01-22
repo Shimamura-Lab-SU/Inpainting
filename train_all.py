@@ -700,7 +700,7 @@ def test(epoch,mode=0,total_epoch = 0):
       reconstruct_error = criterionMSE(fake_masked,real_masked)# 生成画像とオリジナルの差
       #エッジのReconstructErrorを取り入れる
       if(opt.flag_edge == True  and opt.flag_edgeRec == True):
-        reconstruct_errorEdge = criterionMSE(edge_detection(fake_masked,False),edge_detection(real_masked,False)
+        reconstruct_errorEdge = criterionMSE(edge_detection(fake_masked,False),edge_detection(real_masked,False))
       else:
         reconstruct_errorEdge = 0
       #fake_D_predを用いたエラー
