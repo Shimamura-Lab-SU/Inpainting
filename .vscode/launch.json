@@ -15,7 +15,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
 
-            
+            //サンプルとして機能するプロパティにしておく
             "args":[
                 "--dataset=Inpainting_pizza9000","--epochsM0=1","--epochsM1=0","--epochsM2=0",
                 "--batchSize=10","--train_N=10","--test_N=10",//"--checkpoint=Model\\Pizza900_820.tar",
