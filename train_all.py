@@ -33,8 +33,8 @@ from pytorch_memlab import profile
 import random
 import time
 import datetime
-transform_list = [transforms.ToTensor(),
-                  transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+#transform_list = [transforms.ToTensor(),transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+transform_list = [transforms.ToTensor()]
 
 transform = transforms.Compose(transform_list)
 

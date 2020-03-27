@@ -19,8 +19,8 @@ class DatasetFromFolder(data.Dataset):
         #    self.image_filenames[x] = dirname
         #    x = x+1
 
-        transform_list = [transforms.ToTensor(),
-                          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+        #transform_list = [transforms.ToTensor(),transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+        transform_list = [transforms.ToTensor()]
 
         self.transform = transforms.Compose(transform_list)
 
