@@ -2,13 +2,15 @@ import random
 import math
 import torch
 #Mdの場所を決める
-def Set_Md(_seed,image_size = 256):
+def Set_Md(_seed,image_size = 256,hall_size = 64):
   #from train_all import padding,image_size,hall_size
-  padding = math.floor(image_size / 4)
-  hall_size = math.floor(image_size / 4)
+  padding = math.floor(hall_size)
+  #hall_size = math.floor(image_size / 4)
+  d = math.floor(hall_size / 2)
   seed = _seed
-  x = random.randint(0 + padding,image_size - hall_size - padding)
-  y = random.randint(0 + padding,image_size - hall_size - padding)
+
+  x = random.randint(0 + padding + d,image_size - hall_size - padding + d)
+  y = random.randint(0 + padding + d,image_size - hall_size - padding + d)
   return x,y
 
 

@@ -12,3 +12,7 @@ Inpainting_train_allM1/
 Inpainting_train_all/
 *.tar
 Writer/
+*.svg
+Inpainting_pizza9000.zip
+Results/処理後RealA.zip
+dataset/pizza900_1000.zip

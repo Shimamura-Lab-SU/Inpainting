@@ -74,7 +74,7 @@ def Get_Pathlists(soutai_dir):
 #file_list = np.full((2,1000),"")
 
 #パスを取得してその中からデータセットにすべきファイルをランダムに抽出する
-[path_list,file_list] = Get_Pathlists("./pizzaGanData/images") #ここでデータセットを指定する
+[path_list,file_list] = Get_Pathlists("./pizza9000") #ここでデータセットを指定する
 
     #print(file_list)
     #print(file_list)
@@ -110,8 +110,8 @@ if not os.path.exists(dataset_path + '\\edge_data'):
 for i  in range(len(file_samples)):
     #生データセットをコピーして補完する
     src = path_samples[i]
-    copy = raw_path + "\\" + file_samples[i]
-    shutil.copyfile(src,copy)
+    #copy = raw_path + "\\" + file_samples[i]
+    #shutil.copyfile(src,copy)
 
     img = Image.open(path_samples[i])
     w,h = img.size
@@ -128,18 +128,19 @@ for i  in range(len(file_samples)):
     if(h > crop_size):
         py = random.randint(0,h-crop_size)
     img_crop = img.crop((px,py,px+crop_size,py+crop_size))
-
+    
+    img_crop  = img_crop.resize((256, 256), Image.LANCZOS)
     img_crop.save(trimed_path + '\\' +   file_samples[i])
 
     #ついでにエッジ検出もおこなう
-    trans1 = transforms.ToTensor()
+    #trans1 = transforms.ToTensor()
 
-    img_tensor = trans1(img_crop.convert("RGB"))
-    img_tensor_canny =  edge_detection(img_tensor)
-    img_tensor_sobel =  edge_sobel(img_tensor)
+    #img_tensor = trans1(img_crop.convert("RGB"))
+    #img_tensor_canny =  edge_detection(img_tensor)
+    #img_tensor_sobel =  edge_sobel(img_tensor)
     #cv2.imwrite(edge_path + '\\' + file_samples[i], img)
-    vutils.save_image(img_tensor_canny,edge_path + '\\Canny'  + file_samples[i])
-    vutils.save_image(img_tensor_sobel,edge_path + '\\Sobel'  + file_samples[i])
+    #vutils.save_image(img_tensor_canny,edge_path + '\\Canny'  + file_samples[i])
+    #vutils.save_image(img_tensor_sobel,edge_path + '\\Sobel'  + file_samples[i])
     #new_image = img_tensor
     #img_tensor = cv2.cvtColor(img_tensor, cv2.COLOR_GRAY2GRAY) #カラーの場合の処理 BGRをRGBに
     #mg_edge   =   Image.fromarray(img_tensor)

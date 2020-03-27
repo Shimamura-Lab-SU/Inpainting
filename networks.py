@@ -204,7 +204,7 @@ class ResnetGenerator(nn.Module):
       return tensor_b
       
     
-    def forwardWithMasking(self, input, mask_size, batch_num = 1, image_size = 256):
+    def forwardWithMasking(self, input, mask_size,_xposC = 0,_yposC = 0, batch_num = 1, image_size = 256):
       center = math.floor(image_size / 2)
       #from train_all import opt, center
       d = math.floor(mask_size/2)
@@ -220,7 +220,7 @@ class ResnetGenerator(nn.Module):
       #fake_start_image2.resize_(opt.batchSize,opt.input_nc,mask_size,mask_size)
 
       tensor_b = input.clone()    
-      tensor_b[:,:,center - d:center+d,center - d:center+d] = fake_start_image[:,:,center - d:center+d,center - d:center+d]
+      tensor_b[:,:,_xposC - d:_xposC+d,_yposC - d:_yposC+d] = fake_start_image[:,:,_xposC - d:_xposC+d,_yposC - d:_yposC+d]
 
       return(self.forward(tensor_b))
 
@@ -278,14 +278,14 @@ class Global_Discriminator(nn.Module):
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
-  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256):
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)),_xposC = 0,_yposC = 0, hole_size = 0, image_size = 256):
     #カバーを行う
     #from train_all import center,d
     center = math.floor(image_size / 2) #たいてい128
     d =  math.floor(hole_size / 2) #だいたい32    
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
     tensor_b = self.forward(tensor_b)
     return tensor_b
 
@@ -298,7 +298,7 @@ class Global_Discriminator(nn.Module):
 
     return self.forward(tensor_a)
 
-  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0,_xposC = 0,_yposC = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
     #カバーを行ったのちにトリムを行う
     #カバーを行う
     #from train_all import center,d,opt
@@ -307,7 +307,7 @@ class Global_Discriminator(nn.Module):
     d = math.floor(hole_size / 2)
 
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
     #tensorbをinputとしてトリムを行う
     d2 = math.floor(trim_size / 2)
     tensor_a = torch.Tensor(batchSize,1,trim_size,trim_size)
@@ -327,6 +327,18 @@ class Concatenation(nn.Module):
 
       model += [nn.Sigmoid()]
       self.model = nn.Sequential(*model)
+
+  def forward3(self, _global_input, _local_input, _edge_input):
+    #catで入寮同士をつなぐ
+    input = torch.cat((_global_input,_local_input,_edge_input),1)
+    input = input.view(-1,3072)
+    input = input.cuda()
+    if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        input = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+    else:
+        input = self.model(input)
+    return input.cpu()
+
 
   def forward(self, _global_input, _local_input):
     #catで入寮同士をつなぐ
@@ -401,14 +413,14 @@ class Local_Discriminator(nn.Module):
     return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
-  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0,image_size = 256):
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)),_xposC = 0,_yposC = 0, hole_size = 0,image_size = 256):
     #カバーを行う
     #from train_all import center,d
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
     center = math.floor(image_size / 2)
     d = math.floor(hole_size / 2)
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
 
     return(self.forward(tensor_b))
 
@@ -423,7 +435,7 @@ class Local_Discriminator(nn.Module):
 
 
 
-  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0,_xposC = 0,_yposC = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
     #カバーを行ったのちにトリムを行う
     #カバーを行う
     #from train_all import center,d,opt
@@ -432,7 +444,7 @@ class Local_Discriminator(nn.Module):
     d = math.floor(hole_size / 2)
 
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
     #tensorbをinputとしてトリムを行う
     d2 = math.floor(trim_size / 2)
     tensor_a = torch.Tensor(batchSize,1,trim_size,trim_size)
@@ -494,7 +506,7 @@ class Edge_Discriminator(nn.Module):
       return out
 
   #Fake_RawにFakeをかぶせる前処理をしてからネットを走らせる場合
-  def forwardWithCover(self, input,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256):
+  def forwardWithCover(self, input,_input_real = torch.empty((1,1)),_xposC = 0,_yposC = 0, hole_size = 0, image_size = 256):
     #カバーを行う
     #from train_all import center,d
     #fake_b_imageはfake_b_image_rawにreal_a_imageを埋めたもの
@@ -503,7 +515,7 @@ class Edge_Discriminator(nn.Module):
 
 
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
 
     return(self.forward(tensor_b))
 
@@ -516,7 +528,7 @@ class Edge_Discriminator(nn.Module):
 
     return(self.forward(tensor_a))
 
-  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
+  def forwardWithTrimCover(self, input, _xpos = 0, _ypos = 0,_xposC = 0,_yposC = 0, trim_size = 0,_input_real = torch.empty((1,1)), hole_size = 0, image_size = 256, batchSize = -1):
     #カバーを行ったのちにトリムを行う
     #カバーを行う
     #from train_all import center,d,opt
@@ -526,7 +538,7 @@ class Edge_Discriminator(nn.Module):
 
 
     tensor_b = _input_real.clone()
-    tensor_b[:,:,center-d:center+d,center-d:center+d] = input[:,:,center-d:center+d,center-d:center+d]
+    tensor_b[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d] = input[:,:,_xposC-d:_xposC+d,_yposC-d:_yposC+d]
     #tensorbをinputとしてトリムを行う
     d2 = math.floor(trim_size / 2)
     tensor_a = torch.Tensor(batchSize,1,trim_size,trim_size)
